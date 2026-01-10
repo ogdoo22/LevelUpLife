@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Level Up Life",
+    "slug": "leveluplife",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.leveluplife.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Level Up Life needs your location to analyze the neighborhood you're in and show you what it takes to live there.",
+        "NSCameraUsageDescription": "Level Up Life uses your camera to snap photos of neighborhoods you're curious about.",
+        "NSPhotoLibraryUsageDescription": "Level Up Life accesses your photos to read location data from images you've taken."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.leveluplife.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Level Up Life to use your location to analyze neighborhoods."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Level Up Life to access your photos to read location data.",
+          "cameraPermission": "Allow Level Up Life to use your camera to capture neighborhood photos."
+        }
+      ]
+    ]
+  }
+}
