@@ -1,121 +1,62 @@
 /**
- * @fileoverview Card component for displaying analysis results.
- * Supports wealth tier-based theming.
+ * @fileoverview Result card component for displaying analysis sections.
  */
 
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ViewStyle,
-} from 'react-native';
+import React, { ReactNode } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { WealthTier } from '../../types';
-import { COLORS, LAYOUT, TYPOGRAPHY, WEALTH_TIER_COLORS } from '../../constants';
+import { useTheme } from '../../contexts';
+import { TYPOGRAPHY, LAYOUT } from '../../constants';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface ResultCardProps {
-  /** Card title */
+interface ResultCardProps {
   title: string;
-  /** Card content (text or component) */
-  children: React.ReactNode;
-  /** Wealth tier for theming (optional) */
-  tier?: WealthTier;
-  /** Card variant */
-  variant?: 'default' | 'highlight' | 'subtle';
-  /** Additional container style */
-  style?: ViewStyle;
-  /** Test ID for testing */
-  testID?: string;
+  tier: WealthTier;
+  children: ReactNode;
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
-
-/**
- * Card component for displaying analysis sections.
- *
- * @example
- * <ResultCard title="The Numbers" tier={WealthTier.AFFLUENT}>
- *   <Text>Median Home: $850,000</Text>
- * </ResultCard>
- */
-export function ResultCard({
-  title,
-  children,
-  tier,
-  variant = 'default',
-  style,
-  testID,
-}: ResultCardProps): React.ReactElement {
-  // Get tier-based colors if provided
-  const tierColors = tier ? WEALTH_TIER_COLORS[tier] : null;
-
-  const containerStyles: ViewStyle[] = [
-    styles.container,
-    variant === 'highlight' && styles.container_highlight,
-    variant === 'subtle' && styles.container_subtle,
-    tierColors && { borderLeftColor: tierColors.primary },
-    style,
-  ].filter(Boolean) as ViewStyle[];
-
-  const titleStyles = [
-    styles.title,
-    tierColors && { color: tierColors.primary },
-  ];
+export function ResultCard({ title, tier, children }: ResultCardProps): React.ReactElement {
+  const { theme } = useTheme();
+  const tierColors = theme.wealthTierColors[tier];
 
   return (
-    <View style={containerStyles} testID={testID}>
-      <Text style={titleStyles}>{title}</Text>
-      <View style={styles.content}>{children}</View>
+    <View style={[styles.container, { backgroundColor: theme.colors.SURFACE }]}>
+      <View style={[styles.titleContainer, { borderLeftColor: tierColors.primary }]}>
+        <Text style={[styles.title, { color: theme.colors.TEXT_PRIMARY }]}>
+          {title}
+        </Text>
+      </View>
+      <View style={styles.content}>
+        {children}
+      </View>
     </View>
   );
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
-
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.SURFACE,
+    marginHorizontal: LAYOUT.PADDING_HORIZONTAL,
+    marginBottom: 16,
     borderRadius: LAYOUT.CARD_BORDER_RADIUS,
-    padding: LAYOUT.PADDING_HORIZONTAL,
-    marginVertical: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.PRIMARY,
-    shadowColor: COLORS.SHADOW,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
-
-  container_highlight: {
-    backgroundColor: COLORS.PRIMARY,
-    borderLeftColor: COLORS.ACCENT,
+  titleContainer: {
+    borderLeftWidth: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-
-  container_subtle: {
-    backgroundColor: COLORS.SURFACE_DARK,
-    borderLeftColor: COLORS.BORDER,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-
   title: {
     fontSize: TYPOGRAPHY.TITLE_SMALL,
     fontWeight: '700',
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 12,
   },
-
   content: {
-    gap: 8,
+    padding: 16,
   },
 });
 

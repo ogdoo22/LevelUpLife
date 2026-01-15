@@ -1,199 +1,211 @@
 /**
- * @fileoverview Home screen - main entry point of the app.
- * Provides options to use location or take a photo.
+ * @fileoverview Home screen - main entry point for the app.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList, LoadingState } from '../types';
-import { 
-  SafeContainer, 
-  PrimaryButton, 
-  CameraButton, 
-  ErrorDisplay,
+import { RootStackParamList } from '../types';
+import {
+  SafeContainer,
+  PrimaryButton,
   LoadingOverlay,
+  ErrorDisplay,
   NoLocationModal,
+  ThemeToggle,
 } from '../components';
 import { useLocation, useCamera, useAnalysis } from '../hooks';
-import { COLORS, TYPOGRAPHY, LAYOUT } from '../constants';
+import { useTheme } from '../contexts';
+import { TYPOGRAPHY, LAYOUT, FUN_LOADING_MESSAGES } from '../constants';
+import { selectRandom } from '../utils';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 /**
- * Home screen with location and camera options.
+ * Home screen component.
  */
 export function HomeScreen(): React.ReactElement {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const { state: locationState, getLocation, reset: resetLocation } = useLocation();
-  const { state: cameraState, captureImage, reset: resetCamera } = useCamera();
-  const { analyzeLocation, state: analysisState, isAnalyzing, reset: resetAnalysis } = useAnalysis();
-  
-  // Modal state for when photo has no location
+  const { theme } = useTheme();
+  const { state: locationState, getCurrentLocation, reset: resetLocation } = useLocation();
+  const { state: cameraState, takePhoto, reset: resetCamera } = useCamera();
+  const { state: analysisState, analyzeLocation, analyzeZipCode, reset: resetAnalysis } = useAnalysis();
+
   const [showNoLocationModal, setShowNoLocationModal] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState(FUN_LOADING_MESSAGES[0]);
 
-  const handleUseLocation = useCallback(async () => {
-    // Reset any previous errors
+  // Rotate loading messages
+  useEffect(() => {
+    if (locationState.isLoading || cameraState.isLoading || analysisState.isLoading) {
+      const interval = setInterval(() => {
+        setLoadingMessage(selectRandom(FUN_LOADING_MESSAGES) || FUN_LOADING_MESSAGES[0]);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [locationState.isLoading, cameraState.isLoading, analysisState.isLoading]);
+
+  // Handle location obtained -> analyze
+  useEffect(() => {
+    if (locationState.data && !analysisState.data && !analysisState.isLoading) {
+      analyzeLocation(locationState.data);
+    }
+  }, [locationState.data]);
+
+  // Handle photo captured -> check for location
+  useEffect(() => {
+    if (cameraState.data) {
+      if (cameraState.data.hasLocationData && cameraState.data.location) {
+        analyzeLocation(cameraState.data.location);
+      } else {
+        setShowNoLocationModal(true);
+      }
+    }
+  }, [cameraState.data]);
+
+  // Handle analysis complete -> navigate
+  useEffect(() => {
+    if (analysisState.data) {
+      resetLocation();
+      resetCamera();
+      navigation.navigate('Results', { result: analysisState.data });
+    }
+  }, [analysisState.data]);
+
+  const handleUseLocation = useCallback((): void => {
     resetLocation();
     resetCamera();
     resetAnalysis();
-    setShowNoLocationModal(false);
-    
-    try {
-      await getLocation();
-    } catch {
-      // Error handled in hook state
-    }
-  }, [getLocation, resetLocation, resetCamera, resetAnalysis]);
+    getCurrentLocation();
+  }, [getCurrentLocation, resetLocation, resetCamera, resetAnalysis]);
 
-  const handleTakePhoto = useCallback(async () => {
-    // Reset any previous errors
+  const handleTakePhoto = useCallback((): void => {
     resetLocation();
     resetCamera();
     resetAnalysis();
-    
-    try {
-      await captureImage();
-    } catch {
-      // Error handled in hook state
-    }
-  }, [captureImage, resetLocation, resetCamera, resetAnalysis]);
+    takePhoto();
+  }, [takePhoto, resetLocation, resetCamera, resetAnalysis]);
 
-  // Handle modal actions
-  const handleModalUseLocation = useCallback(() => {
-    setShowNoLocationModal(false);
-    void handleUseLocation();
-  }, [handleUseLocation]);
-
-  const handleModalTryAgain = useCallback(() => {
-    setShowNoLocationModal(false);
-    void handleTakePhoto();
-  }, [handleTakePhoto]);
-
-  const handleModalDismiss = useCallback(() => {
-    setShowNoLocationModal(false);
-    resetCamera();
-  }, [resetCamera]);
-
-  const handleDismissError = useCallback(() => {
+  const handleDismissError = useCallback((): void => {
     resetLocation();
     resetCamera();
     resetAnalysis();
   }, [resetLocation, resetCamera, resetAnalysis]);
 
-  // When location is obtained, analyze it
-  React.useEffect(() => {
-    if (locationState.status === LoadingState.SUCCESS && locationState.data) {
-      const { location } = locationState.data;
-      void analyzeLocation(location);
-    }
-  }, [locationState.status, locationState.data, analyzeLocation]);
+  const handleModalUseLocation = useCallback((): void => {
+    setShowNoLocationModal(false);
+    resetCamera();
+    getCurrentLocation();
+  }, [getCurrentLocation, resetCamera]);
 
-  // When photo captured, check for location data
-  React.useEffect(() => {
-    if (cameraState.status === LoadingState.SUCCESS && cameraState.data) {
-      if (cameraState.data.hasLocationData && cameraState.data.location) {
-        // Photo has location - analyze it
-        void analyzeLocation(cameraState.data.location);
-      } else {
-        // No location in photo - show modal with options
-        setShowNoLocationModal(true);
-      }
-    }
-  }, [cameraState.status, cameraState.data, analyzeLocation]);
+  const handleModalTryAgain = useCallback((): void => {
+    setShowNoLocationModal(false);
+    resetCamera();
+    takePhoto();
+  }, [takePhoto, resetCamera]);
 
-  // Navigate to results when analysis complete
-  React.useEffect(() => {
-    if (analysisState.status === LoadingState.SUCCESS && analysisState.data) {
-      // Reset states before navigating
-      resetLocation();
-      resetCamera();
-      navigation.navigate('Results', { result: analysisState.data });
-    }
-  }, [analysisState.status, analysisState.data, navigation, resetLocation, resetCamera]);
+  const handleModalDismiss = useCallback((): void => {
+    setShowNoLocationModal(false);
+    resetCamera();
+  }, [resetCamera]);
 
-  const isLoading = 
-    locationState.status === LoadingState.LOADING ||
-    cameraState.status === LoadingState.LOADING ||
-    isAnalyzing;
-
-  // Get current error (prioritize analysis errors, then location, then camera)
+  const isLoading = locationState.isLoading || cameraState.isLoading || analysisState.isLoading;
   const currentError = analysisState.error || locationState.error || cameraState.error;
 
   return (
-    <SafeContainer backgroundColor={COLORS.BACKGROUND}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+    <SafeContainer backgroundColor={theme.colors.BACKGROUND}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.emoji}>🏠💰</Text>
-          <Text style={styles.title}>Level Up Life</Text>
-          <Text style={styles.subtitle}>
-            Discover what it takes to live anywhere
+          <Text style={styles.headerEmoji}>🏠💰</Text>
+          <Text style={[styles.title, { color: theme.colors.TEXT_PRIMARY }]}>
+            Level Up Life
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.colors.TEXT_SECONDARY }]}>
+            See what it takes to live anywhere
           </Text>
         </View>
 
-        <View style={styles.description}>
-          <Text style={styles.descriptionText}>
-            Share your location or snap a photo of any neighborhood to find out:
+        {/* Theme Toggle */}
+        <View style={styles.themeSection}>
+          <ThemeToggle showLabels={false} size="small" />
+        </View>
+
+        {/* Description */}
+        <View style={[styles.descriptionCard, { backgroundColor: theme.colors.SURFACE }]}>
+          <Text style={[styles.descriptionText, { color: theme.colors.TEXT_PRIMARY }]}>
+            Point us at any neighborhood and we'll tell you:
           </Text>
           <View style={styles.bulletPoints}>
-            <Text style={styles.bullet}>💵 Median home prices & income</Text>
-            <Text style={styles.bullet}>😂 A fun "roast" of the area</Text>
-            <Text style={styles.bullet}>📈 Careers that can get you there</Text>
+            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
+              💵 How much homes cost there
+            </Text>
+            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
+              📊 What income you'd need
+            </Text>
+            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
+              😂 A fun roast of the area
+            </Text>
+            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
+              🚀 How to level up to afford it
+            </Text>
           </View>
         </View>
 
-        {currentError && (
-          <ErrorDisplay
-            error={currentError}
-            onRetry={handleUseLocation}
-            onDismiss={handleDismissError}
-            variant="card"
-          />
-        )}
-
-        <View style={styles.actions}>
+        {/* Action Buttons */}
+        <View style={styles.actionsContainer}>
           <PrimaryButton
             label="📍 Use My Location"
             onPress={handleUseLocation}
-            isLoading={isLoading}
             disabled={isLoading}
-            variant="primary"
             size="large"
           />
 
           <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
+            <Text style={[styles.dividerText, { color: theme.colors.TEXT_MUTED }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
           </View>
 
-          <CameraButton
+          <PrimaryButton
+            label="📸 Take a Photo"
             onPress={handleTakePhoto}
+            variant="secondary"
             disabled={isLoading}
-            label="Take a Photo"
             size="large"
           />
         </View>
 
-        <Text style={styles.footer}>
-          Your location is only used to analyze the area.{'\n'}
-          We don't store or share your data.
+        {/* Privacy Note */}
+        <Text style={[styles.privacyNote, { color: theme.colors.TEXT_MUTED }]}>
+          Your location data stays on your device.{'\n'}
+          We don't track or store where you go.
         </Text>
       </ScrollView>
 
-      {/* Loading overlay */}
-      <LoadingOverlay visible={isLoading} useFunMessages />
+      {/* Loading Overlay */}
+      <LoadingOverlay visible={isLoading} message={loadingMessage} />
 
-      {/* No location in photo modal */}
+      {/* Error Display */}
+      {currentError && !isLoading && (
+        <ErrorDisplay
+          error={currentError}
+          onRetry={handleUseLocation}
+          onDismiss={handleDismissError}
+        />
+      )}
+
+      {/* No Location Modal */}
       <NoLocationModal
         visible={showNoLocationModal}
         onUseCurrentLocation={handleModalUseLocation}
@@ -205,75 +217,72 @@ export function HomeScreen(): React.ReactElement {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    flexGrow: 1,
-    paddingVertical: 40,
+  container: {
+    flex: 1,
+  },
+  content: {
     paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  emoji: {
+  headerEmoji: {
     fontSize: 64,
     marginBottom: 16,
   },
   title: {
     fontSize: TYPOGRAPHY.TITLE_LARGE,
-    fontWeight: '800',
-    color: COLORS.TEXT_PRIMARY,
+    fontWeight: '700',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.BODY_LARGE,
-    color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
   },
-  description: {
+  themeSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  descriptionCard: {
+    borderRadius: LAYOUT.CARD_BORDER_RADIUS,
+    padding: LAYOUT.PADDING_HORIZONTAL,
     marginBottom: 32,
   },
   descriptionText: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    color: COLORS.TEXT_SECONDARY,
-    textAlign: 'center',
     marginBottom: 16,
-    lineHeight: 24,
+    textAlign: 'center',
   },
   bulletPoints: {
-    gap: 8,
+    gap: 12,
   },
-  bullet: {
+  bulletPoint: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    color: COLORS.TEXT_PRIMARY,
-    textAlign: 'center',
+    lineHeight: 24,
   },
-  actions: {
-    alignItems: 'center',
-    gap: 24,
+  actionsContainer: {
+    gap: 16,
     marginBottom: 32,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 40,
+    gap: 16,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: COLORS.BORDER,
   },
   dividerText: {
-    paddingHorizontal: 16,
     fontSize: TYPOGRAPHY.BODY_SMALL,
-    color: COLORS.TEXT_MUTED,
   },
-  footer: {
+  privacyNote: {
     fontSize: TYPOGRAPHY.CAPTION,
-    color: COLORS.TEXT_MUTED,
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 'auto',
+    lineHeight: 20,
   },
 });
 

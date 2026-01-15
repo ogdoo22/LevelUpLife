@@ -1,6 +1,5 @@
 /**
- * @fileoverview Primary button component for main actions.
- * Standardized styling with loading state support.
+ * @fileoverview Primary button component with multiple variants.
  */
 
 import React from 'react';
@@ -11,35 +10,33 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
-  AccessibilityProps,
 } from 'react-native';
-import { COLORS, LAYOUT, TYPOGRAPHY, ANIMATION_DURATIONS } from '../../constants';
+import { useTheme } from '../../contexts';
+import { TYPOGRAPHY, LAYOUT } from '../../constants';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface PrimaryButtonProps extends AccessibilityProps {
+export interface PrimaryButtonProps {
   /** Button label text */
   label: string;
   /** Press handler */
   onPress: () => void;
-  /** Whether button is in loading state */
-  isLoading?: boolean;
-  /** Whether button is disabled */
-  disabled?: boolean;
-  /** Optional icon component to show before label */
-  icon?: React.ReactNode;
   /** Button variant */
   variant?: 'primary' | 'secondary' | 'outline';
   /** Button size */
   size?: 'small' | 'medium' | 'large';
-  /** Additional container style */
+  /** Disabled state */
+  disabled?: boolean;
+  /** Loading state */
+  loading?: boolean;
+  /** Full width */
+  fullWidth?: boolean;
+  /** Custom style overrides */
   style?: ViewStyle;
-  /** Additional label style */
-  labelStyle?: TextStyle;
-  /** Test ID for testing */
-  testID?: string;
+  /** Custom text style overrides */
+  textStyle?: TextStyle;
 }
 
 // ============================================================================
@@ -47,69 +44,105 @@ export interface PrimaryButtonProps extends AccessibilityProps {
 // ============================================================================
 
 /**
- * Primary action button with loading state and variants.
- *
- * @example
- * <PrimaryButton
- *   label="Get Started"
- *   onPress={handlePress}
- *   isLoading={isSubmitting}
- * />
+ * Primary button with variants for different use cases.
  */
 export function PrimaryButton({
   label,
   onPress,
-  isLoading = false,
-  disabled = false,
-  icon,
   variant = 'primary',
-  size = 'large',
+  size = 'medium',
+  disabled = false,
+  loading = false,
+  fullWidth = true,
   style,
-  labelStyle,
-  testID,
-  ...accessibilityProps
+  textStyle,
 }: PrimaryButtonProps): React.ReactElement {
-  const isDisabled = disabled || isLoading;
+  const { theme } = useTheme();
+  const isDisabled = disabled || loading;
 
-  // Get styles based on variant and size
-  const containerStyles = [
-    styles.container,
-    styles[`container_${variant}`],
-    styles[`container_${size}`],
-    isDisabled && styles.container_disabled,
-    style,
-  ];
+  const getBackgroundColor = (): string => {
+    if (isDisabled) return theme.colors.BUTTON_DISABLED;
+    switch (variant) {
+      case 'secondary':
+        return theme.colors.BUTTON_SECONDARY;
+      case 'outline':
+        return 'transparent';
+      default:
+        return theme.colors.BUTTON_PRIMARY;
+    }
+  };
 
-  const textStyles = [
-    styles.label,
-    styles[`label_${variant}`],
-    styles[`label_${size}`],
-    isDisabled && styles.label_disabled,
-    labelStyle,
-  ];
+  const getBorderColor = (): string => {
+    if (variant === 'outline') {
+      return isDisabled ? theme.colors.BUTTON_DISABLED : theme.colors.PRIMARY;
+    }
+    return 'transparent';
+  };
+
+  const getTextColor = (): string => {
+    if (variant === 'outline') {
+      return isDisabled ? theme.colors.TEXT_MUTED : theme.colors.PRIMARY;
+    }
+    return theme.colors.TEXT_LIGHT;
+  };
+
+  const getPadding = (): { paddingVertical: number; paddingHorizontal: number } => {
+    switch (size) {
+      case 'small':
+        return { paddingVertical: 8, paddingHorizontal: 16 };
+      case 'large':
+        return { paddingVertical: 18, paddingHorizontal: 32 };
+      default:
+        return { paddingVertical: 14, paddingHorizontal: 24 };
+    }
+  };
+
+  const getFontSize = (): number => {
+    switch (size) {
+      case 'small':
+        return TYPOGRAPHY.BODY_SMALL;
+      case 'large':
+        return TYPOGRAPHY.BODY_LARGE;
+      default:
+        return TYPOGRAPHY.BODY_MEDIUM;
+    }
+  };
+
+  const padding = getPadding();
 
   return (
     <TouchableOpacity
-      style={containerStyles}
+      style={[
+        styles.button,
+        {
+          backgroundColor: getBackgroundColor(),
+          borderColor: getBorderColor(),
+          paddingVertical: padding.paddingVertical,
+          paddingHorizontal: padding.paddingHorizontal,
+          opacity: isDisabled ? 0.6 : 1,
+          alignSelf: fullWidth ? 'stretch' : 'center',
+        },
+        style,
+      ]}
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.8}
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
-      accessibilityLabel={isLoading ? `${label}, loading` : label}
-      {...accessibilityProps}
     >
-      {isLoading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'outline' ? COLORS.PRIMARY : COLORS.TEXT_LIGHT}
-        />
+      {loading ? (
+        <ActivityIndicator color={getTextColor()} size="small" />
       ) : (
-        <>
-          {icon && <>{icon}</>}
-          <Text style={textStyles}>{label}</Text>
-        </>
+        <Text
+          style={[
+            styles.label,
+            {
+              color: getTextColor(),
+              fontSize: getFontSize(),
+            },
+            textStyle,
+          ]}
+        >
+          {label}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -120,80 +153,15 @@ export function PrimaryButton({
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
+  button: {
+    borderRadius: LAYOUT.BUTTON_BORDER_RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: LAYOUT.BUTTON_BORDER_RADIUS,
-    gap: 8,
-  },
-
-  // Variants
-  container_primary: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  container_secondary: {
-    backgroundColor: COLORS.ACCENT,
-  },
-  container_outline: {
-    backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: COLORS.PRIMARY,
   },
-
-  // Sizes
-  container_small: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    minHeight: 36,
-  },
-  container_medium: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minHeight: 44,
-  },
-  container_large: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    minHeight: 56,
-  },
-
-  // States
-  container_disabled: {
-    opacity: 0.5,
-  },
-
-  // Label base
   label: {
     fontWeight: '600',
     textAlign: 'center',
-  },
-
-  // Label variants
-  label_primary: {
-    color: COLORS.TEXT_LIGHT,
-  },
-  label_secondary: {
-    color: COLORS.TEXT_LIGHT,
-  },
-  label_outline: {
-    color: COLORS.PRIMARY,
-  },
-
-  // Label sizes
-  label_small: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-  },
-  label_medium: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-  },
-  label_large: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
-  },
-
-  // Label states
-  label_disabled: {
-    // Opacity handled by container
   },
 });
 

@@ -1,7 +1,7 @@
 /**
- * @fileoverview Central export point for all custom hooks.
+ * @fileoverview Central export point for all hooks.
  */
 
-export { useLocation, type UseLocationReturn, type LocationWithAddress } from './useLocation';
-export { useAnalysis, type UseAnalysisReturn } from './useAnalysis';
-export { useCamera, type UseCameraReturn } from './useCamera';
+export { useLocation } from './useLocation';
+export { useCamera } from './useCamera';
+export { useAnalysis } from './useAnalysis';

@@ -1,224 +1,114 @@
 /**
- * @fileoverview Card component for displaying career suggestions.
+ * @fileoverview Career suggestion card component.
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { CareerSuggestion } from '../../types';
-import { COLORS, LAYOUT, TYPOGRAPHY } from '../../constants';
+import { useTheme } from '../../contexts';
+import { TYPOGRAPHY, LAYOUT } from '../../constants';
 import { formatCurrency } from '../../utils';
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface CareerCardProps {
-  /** Career suggestion data */
+interface CareerCardProps {
   career: CareerSuggestion;
-  /** Whether card is initially expanded */
-  initiallyExpanded?: boolean;
-  /** Test ID for testing */
-  testID?: string;
 }
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+export function CareerCard({ career }: CareerCardProps): React.ReactElement {
+  const { theme } = useTheme();
 
-/**
- * Expandable card for displaying career information.
- *
- * @example
- * <CareerCard career={softwareEngineer} />
- */
-export function CareerCard({
-  career,
-  initiallyExpanded = false,
-  testID,
-}: CareerCardProps): React.ReactElement {
-  const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
-
-  const handleToggle = (): void => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsExpanded(!isExpanded);
-  };
-
-  // Difficulty stars
-  const difficultyStars = '⭐'.repeat(career.difficultyRating);
+  const salaryRange = `${formatCurrency(career.salaryMin)} - ${formatCurrency(career.salaryMax)}`;
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={handleToggle}
-      activeOpacity={0.9}
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={`${career.title}, tap to ${isExpanded ? 'collapse' : 'expand'}`}
-    >
-      {/* Header - always visible */}
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{career.title}</Text>
-          {career.highDemand && (
-            <View style={styles.demandBadge}>
-              <Text style={styles.demandText}>🔥 Hot</Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.salary}>
-          {formatCurrency(career.salaryMin)} - {formatCurrency(career.salaryMax)}
-        </Text>
-      </View>
-
-      {/* Fun description - always visible */}
-      <Text style={styles.funDescription}>{career.funDescription}</Text>
-
-      {/* Expanded content */}
-      {isExpanded && (
-        <View style={styles.expandedContent}>
-          <View style={styles.divider} />
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Median Salary</Text>
-            <Text style={styles.detailValue}>{formatCurrency(career.salaryMedian)}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Time to Achieve</Text>
-            <Text style={styles.detailValue}>~{career.yearsToAchieve} years</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Difficulty</Text>
-            <Text style={styles.detailValue}>{difficultyStars}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Education</Text>
-            <Text style={styles.detailValue}>{career.educationRequired}</Text>
-          </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.SURFACE }]}>
+      {/* High Demand Badge - positioned at top */}
+      {career.highDemand && (
+        <View style={[styles.demandBadge, { backgroundColor: theme.colors.SUCCESS }]}>
+          <Text style={styles.demandText}>🔥 High Demand</Text>
         </View>
       )}
-
-      {/* Expand indicator */}
-      <Text style={styles.expandIndicator}>
-        {isExpanded ? '▲ Less' : '▼ More'}
+      
+      {/* Title with padding to avoid badge overlap */}
+      <Text 
+        style={[
+          styles.title, 
+          { color: theme.colors.TEXT_PRIMARY },
+          career.highDemand && styles.titleWithBadge
+        ]}
+      >
+        {career.title}
       </Text>
-    </TouchableOpacity>
+      
+      <Text style={[styles.salary, { color: theme.colors.PRIMARY }]}>
+        {salaryRange}
+      </Text>
+      
+      <Text style={[styles.description, { color: theme.colors.TEXT_SECONDARY }]}>
+        {career.funDescription}
+      </Text>
+      
+      <View style={styles.footer}>
+        <Text style={[styles.footerText, { color: theme.colors.TEXT_MUTED }]}>
+          📚 {career.educationRequired}
+        </Text>
+        <Text style={[styles.footerText, { color: theme.colors.TEXT_MUTED }]}>
+          ⏱️ ~{career.yearsToAchieve} years
+        </Text>
+      </View>
+    </View>
   );
 }
 
-// ============================================================================
-// STYLES
-// ============================================================================
-
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.SURFACE,
-    borderRadius: LAYOUT.CARD_BORDER_RADIUS,
-    padding: LAYOUT.PADDING_HORIZONTAL,
-    marginRight: 16,
     width: 280,
-    shadowColor: COLORS.SHADOW,
+    padding: 16,
+    marginRight: 12,
+    borderRadius: LAYOUT.CARD_BORDER_RADIUS,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 3,
   },
-
-  header: {
-    marginBottom: 8,
-  },
-
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-
-  title: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
-    fontWeight: '700',
-    color: COLORS.TEXT_PRIMARY,
-    flex: 1,
-  },
-
   demandBadge: {
-    backgroundColor: COLORS.ACCENT,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    marginLeft: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 10,
   },
-
   demandText: {
     fontSize: TYPOGRAPHY.CAPTION,
-    color: COLORS.TEXT_LIGHT,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
-
-  salary: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    color: COLORS.PRIMARY,
-    fontWeight: '600',
-  },
-
-  funDescription: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-    color: COLORS.TEXT_SECONDARY,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-
-  expandedContent: {
-    marginTop: 12,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.BORDER,
-    marginBottom: 12,
-  },
-
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  title: {
+    fontSize: TYPOGRAPHY.TITLE_SMALL,
+    fontWeight: '700',
     marginBottom: 8,
   },
-
-  detailLabel: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-    color: COLORS.TEXT_SECONDARY,
+  titleWithBadge: {
+    // No extra margin needed since badge is now above
   },
-
-  detailValue: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-    color: COLORS.TEXT_PRIMARY,
+  salary: {
+    fontSize: TYPOGRAPHY.BODY_MEDIUM,
     fontWeight: '600',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 16,
+    marginBottom: 8,
   },
-
-  expandIndicator: {
+  description: {
+    fontSize: TYPOGRAPHY.BODY_SMALL,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
+    gap: 6,
+  },
+  footerText: {
     fontSize: TYPOGRAPHY.CAPTION,
-    color: COLORS.TEXT_MUTED,
-    textAlign: 'center',
-    marginTop: 8,
+    lineHeight: 18,
   },
 });
 

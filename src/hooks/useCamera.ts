@@ -1,261 +1,98 @@
 /**
- * @fileoverview Custom hook for camera and image functionality.
- * Wraps ImageAnalysisService with React state management.
+ * @fileoverview Hook for managing camera state and operations.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  CaptureResult,
-  AppError,
-  LoadingState,
-  AsyncState,
-} from '../types';
-import {
-  ImageAnalysisService,
-  ImagePermissionStatus,
-} from '../services/imageAnalysisService';
+import { useState, useCallback } from 'react';
+import { CameraState, ImageAnalysisResult, AppError, ErrorCode } from '../types';
+import { ImageAnalysisService } from '../services';
+import { ERROR_MESSAGES } from '../constants';
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Return type for useCamera hook.
- */
-export interface UseCameraReturn {
-  /** Current state of camera operation */
-  readonly state: AsyncState<CaptureResult>;
-  /** Current permission status */
-  readonly permissionStatus: ImagePermissionStatus | null;
-  /** Launch camera to capture photo */
-  readonly captureImage: () => Promise<void>;
-  /** Open gallery to select photo */
-  readonly selectFromGallery: () => Promise<void>;
-  /** Reset state to idle */
-  readonly reset: () => void;
-  /** Check permission status */
-  readonly checkPermissions: () => Promise<void>;
-  /** Request camera permission */
-  readonly requestPermission: () => Promise<boolean>;
-  /** Whether camera operation is in progress */
-  readonly isCapturing: boolean;
+interface UseCameraReturn {
+  state: CameraState;
+  takePhoto: () => Promise<void>;
+  pickFromLibrary: () => Promise<void>;
+  reset: () => void;
 }
 
-// ============================================================================
-// HOOK IMPLEMENTATION
-// ============================================================================
+const initialState: CameraState = {
+  data: null,
+  isLoading: false,
+  error: null,
+};
 
-/**
- * Custom hook for camera and image operations.
- *
- * @returns Camera state and control functions
- *
- * @example
- * const { state, captureImage, selectFromGallery } = useCamera();
- *
- * // Capture from camera
- * await captureImage();
- *
- * // Or select from gallery
- * await selectFromGallery();
- *
- * // Check if location data was found
- * if (state.status === LoadingState.SUCCESS && state.data.hasLocationData) {
- *   // Use state.data.location
- * }
- */
 export function useCamera(): UseCameraReturn {
-  // State for async operation
-  const [state, setState] = useState<AsyncState<CaptureResult>>({
-    status: LoadingState.IDLE,
-    data: null,
-    error: null,
-  });
+  const [state, setState] = useState<CameraState>(initialState);
 
-  // Permission status
-  const [permissionStatus, setPermissionStatus] = useState<ImagePermissionStatus | null>(null);
-
-  // Track mounted status
-  const isMountedRef = useRef(true);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  /**
-   * Safely update state only if mounted.
-   */
-  const safeSetState = useCallback((newState: AsyncState<CaptureResult>) => {
-    if (isMountedRef.current) {
-      setState(newState);
-    }
-  }, []);
-
-  /**
-   * Check permissions without requesting.
-   */
-  const checkPermissions = useCallback(async () => {
-    try {
-      const status = await ImageAnalysisService.checkPermissions();
-      if (isMountedRef.current) {
-        setPermissionStatus(status);
-      }
-    } catch {
-      // Silently fail - permission status is optional
-    }
-  }, []);
-
-  /**
-   * Request camera permission.
-   */
-  const requestPermission = useCallback(async (): Promise<boolean> => {
-    try {
-      const granted = await ImageAnalysisService.requestCameraPermission();
-      await checkPermissions(); // Refresh status
-      return granted;
-    } catch {
-      return false;
-    }
-  }, [checkPermissions]);
-
-  /**
-   * Capture image from camera.
-   */
-  const captureImage = useCallback(async () => {
-    safeSetState({
-      status: LoadingState.LOADING,
+  const takePhoto = useCallback(async (): Promise<void> => {
+    setState({
       data: null,
+      isLoading: true,
       error: null,
     });
 
     try {
-      const result = await ImageAnalysisService.captureImage();
-
-      safeSetState({
-        status: LoadingState.SUCCESS,
+      const result = await ImageAnalysisService.captureAndAnalyze();
+      
+      setState({
         data: result,
-        error: null,
-      });
-
-      // Update permission status
-      if (isMountedRef.current) {
-        setPermissionStatus((prev) =>
-          prev ? { ...prev, cameraGranted: true } : null
-        );
-      }
-    } catch (error) {
-      const appError = ensureAppError(error);
-
-      safeSetState({
-        status: LoadingState.ERROR,
-        data: null,
-        error: appError,
-      });
-    }
-  }, [safeSetState]);
-
-  /**
-   * Select image from gallery.
-   */
-  const selectFromGallery = useCallback(async () => {
-    safeSetState({
-      status: LoadingState.LOADING,
-      data: null,
-      error: null,
-    });
-
-    try {
-      const result = await ImageAnalysisService.selectFromGallery();
-
-      safeSetState({
-        status: LoadingState.SUCCESS,
-        data: result,
+        isLoading: false,
         error: null,
       });
     } catch (error) {
-      const appError = ensureAppError(error);
-
-      safeSetState({
-        status: LoadingState.ERROR,
+      const appError: AppError = {
+        code: ErrorCode.CAMERA_UNAVAILABLE,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        userFriendlyMessage: ERROR_MESSAGES[ErrorCode.CAMERA_UNAVAILABLE],
+        recoverable: true,
+      };
+      
+      setState({
         data: null,
+        isLoading: false,
         error: appError,
       });
     }
-  }, [safeSetState]);
+  }, []);
 
-  /**
-   * Reset state to idle.
-   */
-  const reset = useCallback(() => {
-    safeSetState({
-      status: LoadingState.IDLE,
+  const pickFromLibrary = useCallback(async (): Promise<void> => {
+    setState({
       data: null,
+      isLoading: true,
       error: null,
     });
-  }, [safeSetState]);
 
-  // Check permissions on mount
-  useEffect(() => {
-    void checkPermissions();
-  }, [checkPermissions]);
+    try {
+      const result = await ImageAnalysisService.pickAndAnalyze();
+      
+      setState({
+        data: result,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      const appError: AppError = {
+        code: ErrorCode.PHOTO_LIBRARY_PERMISSION_DENIED,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        userFriendlyMessage: ERROR_MESSAGES[ErrorCode.PHOTO_LIBRARY_PERMISSION_DENIED],
+        recoverable: true,
+      };
+      
+      setState({
+        data: null,
+        isLoading: false,
+        error: appError,
+      });
+    }
+  }, []);
 
-  // Derived state
-  const isCapturing = state.status === LoadingState.LOADING;
+  const reset = useCallback((): void => {
+    setState(initialState);
+  }, []);
 
   return {
     state,
-    permissionStatus,
-    captureImage,
-    selectFromGallery,
+    takePhoto,
+    pickFromLibrary,
     reset,
-    checkPermissions,
-    requestPermission,
-    isCapturing,
   };
 }
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Ensures an error is an AppError.
- */
-function ensureAppError(error: unknown): AppError {
-  if (isAppError(error)) {
-    return error;
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  return {
-    code: 'UNKNOWN_ERROR' as const,
-    message,
-    userFriendlyMessage: 'Something went wrong. Please try again.',
-    recoverable: true,
-  };
-}
-
-/**
- * Type guard for AppError.
- */
-function isAppError(error: unknown): error is AppError {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-  const obj = error as Record<string, unknown>;
-  return (
-    typeof obj.code === 'string' &&
-    typeof obj.message === 'string' &&
-    typeof obj.userFriendlyMessage === 'string' &&
-    typeof obj.recoverable === 'boolean'
-  );
-}
-
-/**
- * Default export for convenience.
- */
-export default useCamera;

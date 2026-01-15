@@ -1,139 +1,150 @@
 /**
- * @fileoverview Pure calculation utility functions.
- * These functions are stateless and have no side effects.
- * Following aerospace standards: comprehensive input validation, explicit types, full documentation.
+ * @fileoverview Pure calculation utilities for Level Up Life.
+ * All functions are pure - same inputs always produce same outputs.
+ * No side effects, no external dependencies beyond constants.
  */
 
 import { WealthTier } from '../types';
-import {
-  INCOME_THRESHOLDS,
-  HOME_PRICE_THRESHOLDS,
-  FINANCIAL_CALC,
-  GEO_BOUNDS,
-  ZIP_CODE,
-} from '../constants';
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const INCOME_TO_HOME_RATIO = 3.5;
+const DEFAULT_GROWTH_RATE = 0.03;
+const MAX_PROJECTION_YEARS = 40;
+
+// ZIP Code regex patterns
+const ZIP_REGEX_SHORT = /^\d{5}$/;
+const ZIP_REGEX_FULL = /^\d{5}(-\d{4})?$/;
+
+// Wealth tier thresholds
+const WEALTH_THRESHOLDS = {
+  INCOME: {
+    MODEST: 50000,
+    COMFORTABLE: 100000,
+    AFFLUENT: 200000,
+    WEALTHY: 500000,
+  },
+  HOME_PRICE: {
+    MODEST: 200000,
+    COMFORTABLE: 400000,
+    AFFLUENT: 750000,
+    WEALTHY: 1500000,
+  },
+};
+
+// Tier order for gap calculations
+const TIER_ORDER: WealthTier[] = [
+  WealthTier.MODEST,
+  WealthTier.COMFORTABLE,
+  WealthTier.AFFLUENT,
+  WealthTier.WEALTHY,
+  WealthTier.ULTRA_WEALTHY,
+];
 
 // ============================================================================
 // WEALTH TIER CALCULATIONS
 // ============================================================================
 
 /**
- * Determines the wealth tier based on median income and home price.
- * Uses both indicators with income as the primary factor.
+ * Calculates the wealth tier based on income and home price.
+ * Uses both metrics and returns the higher tier to account for
+ * areas where home prices outpace incomes.
  *
- * @param medianIncome - Median household income in USD
- * @param medianHomePrice - Median home price in USD
- * @returns The appropriate WealthTier enum value
- * @throws Error if inputs are negative or NaN
+ * @param medianIncome - Median household income
+ * @param medianHomePrice - Median home price
+ * @returns The calculated wealth tier
+ * @throws Error if inputs are invalid
  *
  * @example
- * calculateWealthTier(75000, 350000) // Returns WealthTier.COMFORTABLE
- * calculateWealthTier(250000, 1500000) // Returns WealthTier.WEALTHY
+ * calculateWealthTier(75000, 350000) // returns WealthTier.COMFORTABLE
  */
 export function calculateWealthTier(
   medianIncome: number,
   medianHomePrice: number
 ): WealthTier {
-  // Input validation - defensive programming
+  // Validate inputs
   if (!Number.isFinite(medianIncome) || medianIncome < 0) {
-    throw new Error(`Invalid medianIncome: ${medianIncome}. Must be a non-negative finite number.`);
+    throw new Error('Invalid median income: must be a non-negative finite number');
   }
   if (!Number.isFinite(medianHomePrice) || medianHomePrice < 0) {
-    throw new Error(`Invalid medianHomePrice: ${medianHomePrice}. Must be a non-negative finite number.`);
+    throw new Error('Invalid median home price: must be a non-negative finite number');
   }
 
-  // Calculate tier based on income (primary indicator)
-  const incomeTier = calculateTierFromIncome(medianIncome);
+  // Calculate tier from income
+  const incomeTier = getTierFromIncome(medianIncome);
   
-  // Calculate tier based on home price (secondary indicator)
-  const homePriceTier = calculateTierFromHomePrice(medianHomePrice);
-
-  // Use the higher of the two tiers (conservative estimate)
-  return getHigherTier(incomeTier, homePriceTier);
+  // Calculate tier from home price
+  const homePriceTier = getTierFromHomePrice(medianHomePrice);
+  
+  // Return the higher tier
+  const incomeIndex = TIER_ORDER.indexOf(incomeTier);
+  const homeIndex = TIER_ORDER.indexOf(homePriceTier);
+  
+  return homeIndex > incomeIndex ? homePriceTier : incomeTier;
 }
 
 /**
- * Calculates wealth tier from income alone.
- * @param income - Household income in USD
- * @returns WealthTier based on income thresholds
+ * Gets wealth tier based on income alone.
  */
-function calculateTierFromIncome(income: number): WealthTier {
-  if (income <= INCOME_THRESHOLDS.MODEST_MAX) {
-    return WealthTier.MODEST;
+function getTierFromIncome(income: number): WealthTier {
+  if (income >= WEALTH_THRESHOLDS.INCOME.WEALTHY) {
+    return WealthTier.ULTRA_WEALTHY;
   }
-  if (income <= INCOME_THRESHOLDS.COMFORTABLE_MAX) {
-    return WealthTier.COMFORTABLE;
-  }
-  if (income <= INCOME_THRESHOLDS.AFFLUENT_MAX) {
-    return WealthTier.AFFLUENT;
-  }
-  if (income <= INCOME_THRESHOLDS.WEALTHY_MAX) {
+  if (income >= WEALTH_THRESHOLDS.INCOME.AFFLUENT) {
     return WealthTier.WEALTHY;
   }
-  return WealthTier.ULTRA_WEALTHY;
-}
-
-/**
- * Calculates wealth tier from home price alone.
- * @param homePrice - Home price in USD
- * @returns WealthTier based on home price thresholds
- */
-function calculateTierFromHomePrice(homePrice: number): WealthTier {
-  if (homePrice <= HOME_PRICE_THRESHOLDS.MODEST_MAX) {
-    return WealthTier.MODEST;
-  }
-  if (homePrice <= HOME_PRICE_THRESHOLDS.COMFORTABLE_MAX) {
-    return WealthTier.COMFORTABLE;
-  }
-  if (homePrice <= HOME_PRICE_THRESHOLDS.AFFLUENT_MAX) {
+  if (income >= WEALTH_THRESHOLDS.INCOME.COMFORTABLE) {
     return WealthTier.AFFLUENT;
   }
-  if (homePrice <= HOME_PRICE_THRESHOLDS.WEALTHY_MAX) {
-    return WealthTier.WEALTHY;
+  if (income >= WEALTH_THRESHOLDS.INCOME.MODEST) {
+    return WealthTier.COMFORTABLE;
   }
-  return WealthTier.ULTRA_WEALTHY;
+  return WealthTier.MODEST;
 }
 
 /**
- * Tier ordering for comparison.
+ * Gets wealth tier based on home price alone.
  */
-const TIER_ORDER: Record<WealthTier, number> = {
-  [WealthTier.MODEST]: 0,
-  [WealthTier.COMFORTABLE]: 1,
-  [WealthTier.AFFLUENT]: 2,
-  [WealthTier.WEALTHY]: 3,
-  [WealthTier.ULTRA_WEALTHY]: 4,
-};
-
-/**
- * Returns the higher of two wealth tiers.
- * @param tier1 - First tier to compare
- * @param tier2 - Second tier to compare
- * @returns The higher tier
- */
-function getHigherTier(tier1: WealthTier, tier2: WealthTier): WealthTier {
-  return TIER_ORDER[tier1] >= TIER_ORDER[tier2] ? tier1 : tier2;
+function getTierFromHomePrice(price: number): WealthTier {
+  if (price >= WEALTH_THRESHOLDS.HOME_PRICE.WEALTHY) {
+    return WealthTier.ULTRA_WEALTHY;
+  }
+  if (price >= WEALTH_THRESHOLDS.HOME_PRICE.AFFLUENT) {
+    return WealthTier.WEALTHY;
+  }
+  if (price >= WEALTH_THRESHOLDS.HOME_PRICE.COMFORTABLE) {
+    return WealthTier.AFFLUENT;
+  }
+  if (price >= WEALTH_THRESHOLDS.HOME_PRICE.MODEST) {
+    return WealthTier.COMFORTABLE;
+  }
+  return WealthTier.MODEST;
 }
 
 /**
  * Calculates the gap between two wealth tiers.
- * @param fromTier - Starting tier
- * @param toTier - Target tier
- * @returns Number of tiers between (0-4)
+ *
+ * @param currentTier - Starting tier
+ * @param targetTier - Target tier
+ * @returns Number of tiers between (0-4), never negative
  */
-export function calculateTierGap(fromTier: WealthTier, toTier: WealthTier): number {
-  const fromOrder = TIER_ORDER[fromTier];
-  const toOrder = TIER_ORDER[toTier];
-  return Math.max(0, toOrder - fromOrder);
+export function calculateTierGap(
+  currentTier: WealthTier,
+  targetTier: WealthTier
+): number {
+  const currentIndex = TIER_ORDER.indexOf(currentTier);
+  const targetIndex = TIER_ORDER.indexOf(targetTier);
+  
+  return Math.max(0, targetIndex - currentIndex);
 }
 
 /**
- * Gets the numeric order of a tier (0-4).
- * @param tier - The wealth tier
- * @returns Numeric order
+ * Gets the order index of a tier (for comparisons).
  */
 export function getTierOrder(tier: WealthTier): number {
-  return TIER_ORDER[tier];
+  return TIER_ORDER.indexOf(tier);
 }
 
 // ============================================================================
@@ -141,57 +152,52 @@ export function getTierOrder(tier: WealthTier): number {
 // ============================================================================
 
 /**
- * Formats a number as USD currency string.
- * Handles large numbers with K, M, B suffixes.
+ * Formats a number as currency.
  *
- * @param amount - Amount in USD
+ * @param amount - The amount to format
  * @param options - Formatting options
  * @returns Formatted currency string
  *
  * @example
- * formatCurrency(1500000) // Returns "$1.5M"
- * formatCurrency(75000) // Returns "$75,000"
- * formatCurrency(950) // Returns "$950"
+ * formatCurrency(1500000) // returns "$1.5M"
+ * formatCurrency(75000) // returns "$75K"
+ * formatCurrency(1500000, { compact: false }) // returns "$1,500,000"
  */
 export function formatCurrency(
   amount: number,
-  options: { compact?: boolean; showCents?: boolean } = {}
+  options: { compact?: boolean } = { compact: true }
 ): string {
-  const { compact = true, showCents = false } = options;
-
   // Handle invalid inputs
   if (!Number.isFinite(amount)) {
     return '$0';
   }
 
-  // Handle negative amounts
-  const isNegative = amount < 0;
-  const absoluteAmount = Math.abs(amount);
+  const absAmount = Math.abs(amount);
+  const sign = amount < 0 ? '-' : '';
 
-  // Determine formatting based on size
-  let formatted: string;
-
-  if (compact && absoluteAmount >= 1_000_000_000) {
-    formatted = `$${(absoluteAmount / 1_000_000_000).toFixed(1)}B`;
-  } else if (compact && absoluteAmount >= 1_000_000) {
-    formatted = `$${(absoluteAmount / 1_000_000).toFixed(1)}M`;
-  } else if (compact && absoluteAmount >= 100_000) {
-    formatted = `$${Math.round(absoluteAmount / 1000)}K`;
-  } else if (showCents) {
-    formatted = `$${absoluteAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else {
-    formatted = `$${Math.round(absoluteAmount).toLocaleString('en-US')}`;
+  if (options.compact) {
+    if (absAmount >= 1_000_000_000) {
+      const formatted = (absAmount / 1_000_000_000).toFixed(1).replace(/\.0$/, '');
+      return `${sign}$${formatted}B`;
+    }
+    if (absAmount >= 1_000_000) {
+      const formatted = (absAmount / 1_000_000).toFixed(1).replace(/\.0$/, '');
+      return `${sign}$${formatted}M`;
+    }
+    if (absAmount >= 100_000) {
+      const formatted = Math.round(absAmount / 1_000);
+      return `${sign}$${formatted}K`;
+    }
   }
 
-  // Remove trailing .0 for cleaner display
-  formatted = formatted.replace(/\.0([KMB])$/, '$1');
-
-  return isNegative ? `-${formatted}` : formatted;
+  // Standard formatting with commas
+  return `${sign}$${absAmount.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 /**
- * Formats a monthly amount with "/mo" suffix.
- * @param amount - Monthly amount in USD
+ * Formats a monthly amount.
+ *
+ * @param amount - Monthly amount
  * @returns Formatted string like "$2,500/mo"
  */
 export function formatMonthlyAmount(amount: number): string {
@@ -202,89 +208,76 @@ export function formatMonthlyAmount(amount: number): string {
 }
 
 // ============================================================================
-// FINANCIAL PROJECTIONS
+// FINANCIAL CALCULATIONS
 // ============================================================================
 
 /**
- * Calculates estimated years to reach target income from current income.
- * Uses compound annual growth rate (CAGR) formula.
+ * Calculates years to reach a target income with compound growth.
  *
- * @param currentIncome - Current annual income in USD
- * @param targetIncome - Target annual income in USD
- * @param annualGrowthRate - Expected annual salary growth (decimal, e.g., 0.05 for 5%)
- * @returns Estimated years to reach target (capped at MAX_PROJECTION_YEARS)
- *
- * @example
- * calculateYearsToGoal(50000, 100000, 0.05) // Returns ~14 years
+ * @param currentIncome - Current annual income
+ * @param targetIncome - Target annual income
+ * @param growthRate - Annual growth rate (default 3%)
+ * @returns Years to reach target, capped at MAX_PROJECTION_YEARS
  */
 export function calculateYearsToGoal(
   currentIncome: number,
   targetIncome: number,
-  annualGrowthRate: number = FINANCIAL_CALC.DEFAULT_GROWTH_RATE
+  growthRate: number = DEFAULT_GROWTH_RATE
 ): number {
-  // Validate inputs
-  if (!Number.isFinite(currentIncome) || currentIncome <= 0) {
-    return FINANCIAL_CALC.MAX_PROJECTION_YEARS;
-  }
-  if (!Number.isFinite(targetIncome) || targetIncome <= 0) {
-    return 0;
-  }
-  if (!Number.isFinite(annualGrowthRate) || annualGrowthRate <= 0) {
-    return FINANCIAL_CALC.MAX_PROJECTION_YEARS;
-  }
-
   // Already at or above target
   if (currentIncome >= targetIncome) {
     return 0;
   }
 
-  // Calculate years using logarithm: years = log(target/current) / log(1 + rate)
-  const years = Math.log(targetIncome / currentIncome) / Math.log(1 + annualGrowthRate);
+  // Invalid inputs
+  if (currentIncome <= 0 || growthRate <= 0) {
+    return MAX_PROJECTION_YEARS;
+  }
 
-  // Cap at maximum and round up to whole years
-  return Math.min(
-    Math.ceil(years),
-    FINANCIAL_CALC.MAX_PROJECTION_YEARS
-  );
+  // Calculate using compound growth formula: years = ln(target/current) / ln(1 + rate)
+  const years = Math.log(targetIncome / currentIncome) / Math.log(1 + growthRate);
+  
+  return Math.min(Math.ceil(years), MAX_PROJECTION_YEARS);
 }
 
 /**
- * Estimates income needed to afford a home at a given price.
- * Based on standard lending guidelines.
+ * Calculates the income needed to afford a home at a given price.
+ * Uses the standard 3.5x income-to-home-price ratio.
  *
- * @param homePrice - Target home price in USD
- * @returns Estimated annual income needed
+ * @param homePrice - Price of the home
+ * @returns Annual income needed
  */
 export function calculateIncomeNeededForHome(homePrice: number): number {
   if (!Number.isFinite(homePrice) || homePrice <= 0) {
     return 0;
   }
-  return Math.round(homePrice / FINANCIAL_CALC.INCOME_TO_HOME_RATIO);
+  return Math.round(homePrice / INCOME_TO_HOME_RATIO);
 }
 
 /**
- * Calculates maximum affordable rent based on income.
- * @param annualIncome - Annual income in USD
- * @returns Maximum monthly rent (30% of monthly income)
+ * Calculates affordable rent based on income (30% rule).
+ *
+ * @param annualIncome - Annual income
+ * @returns Maximum monthly rent
  */
 export function calculateAffordableRent(annualIncome: number): number {
   if (!Number.isFinite(annualIncome) || annualIncome <= 0) {
     return 0;
   }
-  const monthlyIncome = annualIncome / 12;
-  return Math.round(monthlyIncome * FINANCIAL_CALC.RENT_TO_INCOME_RATIO);
+  return Math.round((annualIncome * 0.3) / 12);
 }
 
 /**
  * Calculates the income gap between current and target.
- * @param currentIncome - Current annual income
- * @param targetIncome - Target annual income
- * @returns The positive gap, or 0 if already at/above target
+ *
+ * @param currentIncome - Current income
+ * @param targetIncome - Target income
+ * @returns The gap (always positive or zero)
  */
-export function calculateIncomeGap(currentIncome: number, targetIncome: number): number {
-  if (!Number.isFinite(currentIncome) || !Number.isFinite(targetIncome)) {
-    return 0;
-  }
+export function calculateIncomeGap(
+  currentIncome: number,
+  targetIncome: number
+): number {
   return Math.max(0, targetIncome - currentIncome);
 }
 
@@ -294,45 +287,45 @@ export function calculateIncomeGap(currentIncome: number, targetIncome: number):
 
 /**
  * Validates geographic coordinates.
- * @param latitude - Latitude in decimal degrees
- * @param longitude - Longitude in decimal degrees
- * @returns True if coordinates are valid
+ *
+ * @param latitude - Latitude value
+ * @param longitude - Longitude value
+ * @returns True if valid coordinates
  */
-export function validateCoordinates(latitude: number, longitude: number): boolean {
+export function validateCoordinates(
+  latitude: number,
+  longitude: number
+): boolean {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return false;
   }
-  
-  const isLatValid = latitude >= GEO_BOUNDS.LAT_MIN && latitude <= GEO_BOUNDS.LAT_MAX;
-  const isLngValid = longitude >= GEO_BOUNDS.LNG_MIN && longitude <= GEO_BOUNDS.LNG_MAX;
-  
-  return isLatValid && isLngValid;
+  return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }
 
 /**
  * Validates a US ZIP code format.
- * @param zipCode - ZIP code string to validate
- * @returns True if valid 5-digit or 9-digit ZIP
+ *
+ * @param zipCode - ZIP code to validate
+ * @returns True if valid format (5 digits or 5+4)
  */
 export function validateZipCode(zipCode: string): boolean {
-  if (typeof zipCode !== 'string') {
+  if (!zipCode || typeof zipCode !== 'string') {
     return false;
   }
-  
   const trimmed = zipCode.trim();
-  return ZIP_CODE.REGEX_SHORT.test(trimmed) || ZIP_CODE.REGEX_LONG.test(trimmed);
+  return ZIP_REGEX_FULL.test(trimmed);
 }
 
 /**
  * Normalizes a ZIP code to 5-digit format.
- * @param zipCode - ZIP code (5 or 9 digit)
- * @returns 5-digit ZIP code
+ *
+ * @param zipCode - ZIP code to normalize
+ * @returns 5-digit ZIP or empty string if invalid
  */
 export function normalizeZipCode(zipCode: string): string {
   if (!validateZipCode(zipCode)) {
     return '';
   }
-  // Return first 5 digits
   return zipCode.trim().substring(0, 5);
 }
 
@@ -341,32 +334,43 @@ export function normalizeZipCode(zipCode: string): string {
 // ============================================================================
 
 /**
- * Selects a random item from an array.
+ * Selects a random element from an array.
+ *
  * @param array - Array to select from
- * @returns Random item, or undefined if array is empty
+ * @returns Random element or undefined if empty
  */
 export function selectRandom<T>(array: ReadonlyArray<T>): T | undefined {
   if (array.length === 0) {
     return undefined;
   }
-  const index = Math.floor(Math.random() * array.length);
-  return array[index];
+  return array[Math.floor(Math.random() * array.length)];
 }
 
 /**
- * Selects multiple random items from an array without replacement.
+ * Selects multiple random elements from an array without replacement.
+ *
  * @param array - Array to select from
- * @param count - Number of items to select
- * @returns Array of random items
+ * @param count - Number of elements to select
+ * @returns Array of selected elements
  */
-export function selectRandomMultiple<T>(array: ReadonlyArray<T>, count: number): T[] {
+export function selectRandomMultiple<T>(
+  array: ReadonlyArray<T>,
+  count: number
+): T[] {
   if (array.length === 0 || count <= 0) {
     return [];
   }
-  
-  const actualCount = Math.min(count, array.length);
-  const shuffled = [...array].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, actualCount);
+
+  const available = [...array];
+  const selected: T[] = [];
+  const selectCount = Math.min(count, available.length);
+
+  for (let i = 0; i < selectCount; i++) {
+    const index = Math.floor(Math.random() * available.length);
+    selected.push(available.splice(index, 1)[0]);
+  }
+
+  return selected;
 }
 
 // ============================================================================
@@ -375,43 +379,37 @@ export function selectRandomMultiple<T>(array: ReadonlyArray<T>, count: number):
 
 /**
  * Replaces placeholders in a template string.
- * Placeholders are in the format {{key}}.
  *
- * @param template - Template string with placeholders
+ * @param template - Template with {{placeholder}} syntax
  * @param values - Object with replacement values
  * @returns String with placeholders replaced
  *
  * @example
- * replacePlaceholders("Hello {{name}}!", { name: "World" }) // "Hello World!"
+ * replacePlaceholders("Hello {{name}}!", { name: "World" })
+ * // returns "Hello World!"
  */
 export function replacePlaceholders(
   template: string,
   values: Record<string, string | number>
 ): string {
-  if (typeof template !== 'string') {
-    return '';
-  }
-  
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
-    const value = values[key];
-    return value !== undefined ? String(value) : match;
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    return key in values ? String(values[key]) : match;
   });
 }
 
 /**
- * Truncates a string to a maximum length, adding ellipsis if needed.
+ * Truncates text to a maximum length with ellipsis.
+ *
  * @param text - Text to truncate
  * @param maxLength - Maximum length including ellipsis
- * @returns Truncated string
+ * @returns Truncated text
  */
 export function truncateText(text: string, maxLength: number): string {
-  if (typeof text !== 'string' || maxLength < 4) {
-    return text;
-  }
-  
   if (text.length <= maxLength) {
     return text;
   }
-  
+  if (maxLength <= 3) {
+    return text; // Too short to truncate meaningfully
+  }
   return text.substring(0, maxLength - 3) + '...';
 }

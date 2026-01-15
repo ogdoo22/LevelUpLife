@@ -1,338 +1,189 @@
 /**
- * @fileoverview Location service for GPS access and reverse geocoding.
- * Handles all location-related operations with proper error handling.
- * Uses expo-location for device GPS access.
+ * @fileoverview Location service for GPS and geocoding operations.
  */
 
 import * as Location from 'expo-location';
-import {
-  LocationData,
-  GeocodedAddress,
-  AppError,
-  ErrorCode,
-} from '../types';
-import { NETWORK_TIMEOUTS, ERROR_MESSAGES, GEO_BOUNDS } from '../constants';
-import { validateCoordinates } from '../utils/calculations';
+import { LocationData, AddressData, AppError, ErrorCode } from '../types';
+import { ERROR_MESSAGES } from '../constants';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-/**
- * Permission status for location access.
- */
 export interface LocationPermissionStatus {
-  readonly granted: boolean;
-  readonly canAskAgain: boolean;
+  granted: boolean;
+  canAskAgain: boolean;
 }
 
 // ============================================================================
 // LOCATION SERVICE CLASS
 // ============================================================================
 
-/**
- * Service for handling location operations.
- * Provides methods for getting current location and reverse geocoding.
- */
 class LocationServiceClass {
-  /** Cache for reverse geocode results to avoid redundant calls */
-  private geocodeCache: Map<string, GeocodedAddress> = new Map();
-  
-  /** Maximum cache size */
-  private readonly MAX_CACHE_SIZE = 50;
+  /**
+   * Request location permissions from the user.
+   */
+  async requestPermissions(): Promise<boolean> {
+    try {
+      console.log('LocationService: Checking existing permissions');
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      console.log('LocationService: Existing status', existingStatus);
+      
+      if (existingStatus === 'granted') {
+        return true;
+      }
+
+      console.log('LocationService: Requesting permissions');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log('LocationService: New status', status);
+      return status === 'granted';
+    } catch (error) {
+      console.error('LocationService: Error requesting permissions', error);
+      return false;
+    }
+  }
 
   /**
-   * Checks current location permission status.
-   * Does not request permission, just checks current state.
-   *
-   * @returns Current permission status
+   * Check current permission status without prompting.
    */
-  async checkPermissionStatus(): Promise<LocationPermissionStatus> {
+  async checkPermissions(): Promise<LocationPermissionStatus> {
     try {
       const { status, canAskAgain } = await Location.getForegroundPermissionsAsync();
       return {
-        granted: status === Location.PermissionStatus.GRANTED,
-        canAskAgain: canAskAgain,
+        granted: status === 'granted',
+        canAskAgain,
       };
     } catch (error) {
-      // Default to not granted on error
-      return {
-        granted: false,
-        canAskAgain: true,
-      };
+      console.error('Error checking location permissions:', error);
+      return { granted: false, canAskAgain: false };
     }
   }
 
   /**
-   * Requests location permission from the user.
-   *
-   * @returns Whether permission was granted
-   * @throws AppError if permission is denied
-   */
-  async requestPermission(): Promise<boolean> {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== Location.PermissionStatus.GRANTED) {
-        throw this.createError(
-          ErrorCode.LOCATION_PERMISSION_DENIED,
-          'Location permission was denied by user'
-        );
-      }
-      
-      return true;
-    } catch (error) {
-      if (this.isAppError(error)) {
-        throw error;
-      }
-      throw this.createError(
-        ErrorCode.LOCATION_PERMISSION_DENIED,
-        `Permission request failed: ${String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Gets the current device location.
-   * Requests permission if not already granted.
-   *
-   * @returns Current location data
-   * @throws AppError on failure (permission denied, unavailable, timeout)
+   * Get current device location.
    */
   async getCurrentLocation(): Promise<LocationData> {
-    // First, ensure we have permission
-    const permissionStatus = await this.checkPermissionStatus();
-    
-    if (!permissionStatus.granted) {
-      await this.requestPermission();
-    }
-
     try {
-      // Get current position with timeout
-      const location = await Promise.race([
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        }),
-        this.createTimeoutPromise(NETWORK_TIMEOUTS.LOCATION_TIMEOUT_MS),
-      ]);
-
-      // Validate the returned location
-      if (!location || !this.isValidExpoLocation(location)) {
+      console.log('LocationService: Checking if services enabled');
+      const serviceEnabled = await Location.hasServicesEnabledAsync();
+      console.log('LocationService: Services enabled', serviceEnabled);
+      
+      if (!serviceEnabled) {
         throw this.createError(
           ErrorCode.LOCATION_UNAVAILABLE,
-          'Invalid location data received'
+          'Location services are disabled. Please enable them in your device settings.'
         );
       }
 
-      // Transform to our LocationData format
-      const locationData: LocationData = {
+      console.log('LocationService: Requesting permissions');
+      const hasPermission = await this.requestPermissions();
+      console.log('LocationService: Has permission', hasPermission);
+      
+      if (!hasPermission) {
+        throw this.createError(
+          ErrorCode.LOCATION_PERMISSION_DENIED,
+          'Location permission was denied'
+        );
+      }
+
+      console.log('LocationService: Getting current position');
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      console.log('LocationService: Got position', location);
+
+      return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        accuracy: location.coords.accuracy ?? GEO_BOUNDS.ACCURACY_THRESHOLD,
+        accuracy: location.coords.accuracy,
         timestamp: new Date(location.timestamp),
       };
-
-      // Validate coordinates
-      if (!validateCoordinates(locationData.latitude, locationData.longitude)) {
-        throw this.createError(
-          ErrorCode.LOCATION_UNAVAILABLE,
-          `Invalid coordinates: ${locationData.latitude}, ${locationData.longitude}`
-        );
-      }
-
-      return locationData;
     } catch (error) {
+      console.error('LocationService: getCurrentLocation error', error);
+      
       if (this.isAppError(error)) {
         throw error;
       }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
       
-      // Handle specific error cases
-      const errorMessage = String(error);
-      
-      if (errorMessage.includes('timeout')) {
-        throw this.createError(
-          ErrorCode.LOCATION_TIMEOUT,
-          'Location request timed out'
-        );
+      if (errorMessage.includes('denied')) {
+        throw this.createError(ErrorCode.LOCATION_PERMISSION_DENIED, errorMessage);
       }
       
-      throw this.createError(
-        ErrorCode.LOCATION_UNAVAILABLE,
-        `Failed to get location: ${errorMessage}`
-      );
+      if (errorMessage.includes('timeout')) {
+        throw this.createError(ErrorCode.LOCATION_TIMEOUT, errorMessage);
+      }
+
+      throw this.createError(ErrorCode.LOCATION_UNAVAILABLE, errorMessage);
     }
   }
 
   /**
-   * Converts coordinates to address information.
-   * Results are cached to avoid redundant API calls.
-   *
-   * @param latitude - Latitude in decimal degrees
-   * @param longitude - Longitude in decimal degrees
-   * @returns Geocoded address information
-   * @throws AppError if geocoding fails
+   * Reverse geocode coordinates to get address.
    */
-  async reverseGeocode(
-    latitude: number,
-    longitude: number
-  ): Promise<GeocodedAddress> {
-    // Validate inputs
-    if (!validateCoordinates(latitude, longitude)) {
-      throw this.createError(
-        ErrorCode.LOCATION_UNAVAILABLE,
-        `Invalid coordinates for geocoding: ${latitude}, ${longitude}`
-      );
-    }
-
-    // Check cache first (round to 4 decimal places for cache key - ~11m accuracy)
-    const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
-    const cached = this.geocodeCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
+  async reverseGeocode(latitude: number, longitude: number): Promise<AddressData> {
     try {
+      console.log('LocationService: Reverse geocoding', latitude, longitude);
       const results = await Location.reverseGeocodeAsync({
         latitude,
         longitude,
       });
+      console.log('LocationService: Geocode results', results);
 
-      if (!results || results.length === 0) {
+      if (results.length === 0) {
         throw this.createError(
-          ErrorCode.DATA_UNAVAILABLE,
-          'No geocode results returned'
+          ErrorCode.GEOCODING_FAILED,
+          'No address found for these coordinates'
         );
       }
 
-      const result = results[0];
-      
-      // Handle missing or null values safely
-      const address: GeocodedAddress = {
-        zipCode: result?.postalCode ?? '',
-        city: result?.city ?? result?.subregion ?? '',
-        state: result?.region ?? '',
-        streetAddress: this.formatStreetAddress(result),
-        neighborhood: result?.district ?? result?.subregion ?? null,
+      const address = results[0];
+      console.log('LocationService: Address', address);
+
+      return {
+        streetAddress: address.street || address.name || null,
+        neighborhood: address.district || address.subregion || null,
+        city: address.city || address.region || 'Unknown City',
+        state: address.region || '',
+        zipCode: address.postalCode || '00000',
+        country: address.country || 'USA',
       };
-
-      // Validate we got at least some useful data
-      if (!address.zipCode && !address.city) {
-        throw this.createError(
-          ErrorCode.DATA_UNAVAILABLE,
-          'Geocoding returned incomplete data'
-        );
-      }
-
-      // Cache the result
-      this.addToCache(cacheKey, address);
-
-      return address;
     } catch (error) {
+      console.error('LocationService: Geocoding error', error);
+      
       if (this.isAppError(error)) {
         throw error;
       }
-      
+
       throw this.createError(
-        ErrorCode.NETWORK_ERROR,
-        `Reverse geocoding failed: ${String(error)}`
+        ErrorCode.GEOCODING_FAILED,
+        error instanceof Error ? error.message : 'Geocoding failed'
       );
     }
   }
 
   /**
-   * Gets location and reverse geocodes in one call.
-   * Convenience method for the common use case.
-   *
-   * @returns Location data with address information
+   * Get last known location (faster but may be stale).
    */
-  async getLocationWithAddress(): Promise<{
-    location: LocationData;
-    address: GeocodedAddress;
-  }> {
-    const location = await this.getCurrentLocation();
-    const address = await this.reverseGeocode(location.latitude, location.longitude);
-    
-    return { location, address };
-  }
+  async getLastKnownLocation(): Promise<LocationData | null> {
+    try {
+      const location = await Location.getLastKnownPositionAsync();
+      
+      if (!location) {
+        return null;
+      }
 
-  // ============================================================================
-  // PRIVATE HELPER METHODS
-  // ============================================================================
-
-  /**
-   * Creates a promise that rejects after a timeout.
-   */
-  private createTimeoutPromise(ms: number): Promise<never> {
-    return new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Operation timed out after ${ms}ms`));
-      }, ms);
-    });
-  }
-
-  /**
-   * Type guard for Expo location object.
-   */
-  private isValidExpoLocation(
-    location: unknown
-  ): location is Location.LocationObject {
-    if (typeof location !== 'object' || location === null) {
-      return false;
-    }
-    const loc = location as Record<string, unknown>;
-    if (typeof loc.coords !== 'object' || loc.coords === null) {
-      return false;
-    }
-    const coords = loc.coords as Record<string, unknown>;
-    return (
-      typeof coords.latitude === 'number' &&
-      typeof coords.longitude === 'number'
-    );
-  }
-
-  /**
-   * Formats a street address from geocode result.
-   */
-  private formatStreetAddress(
-    result: Location.LocationGeocodedAddress | null
-  ): string | null {
-    if (!result) {
+      return {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy,
+        timestamp: new Date(location.timestamp),
+      };
+    } catch (error) {
+      console.error('Error getting last known location:', error);
       return null;
     }
-    
-    const parts: string[] = [];
-    
-    if (result.streetNumber) {
-      parts.push(result.streetNumber);
-    }
-    if (result.street) {
-      parts.push(result.street);
-    }
-    
-    return parts.length > 0 ? parts.join(' ') : null;
-  }
-
-  /**
-   * Creates a standardized AppError.
-   */
-  private createError(code: ErrorCode, message: string): AppError {
-    return {
-      code,
-      message,
-      userFriendlyMessage: ERROR_MESSAGES[code] || ERROR_MESSAGES[ErrorCode.UNKNOWN_ERROR],
-      recoverable: this.isRecoverableError(code),
-    };
-  }
-
-  /**
-   * Determines if an error is recoverable (user can retry).
-   */
-  private isRecoverableError(code: ErrorCode): boolean {
-    const nonRecoverableCodes: ErrorCode[] = [
-      ErrorCode.LOCATION_PERMISSION_DENIED,
-      ErrorCode.CAMERA_PERMISSION_DENIED,
-    ];
-    return !nonRecoverableCodes.includes(code);
   }
 
   /**
@@ -342,34 +193,23 @@ class LocationServiceClass {
     if (typeof error !== 'object' || error === null) {
       return false;
     }
-    const appError = error as Record<string, unknown>;
+    const obj = error as Record<string, unknown>;
     return (
-      typeof appError.code === 'string' &&
-      typeof appError.message === 'string' &&
-      typeof appError.userFriendlyMessage === 'string'
+      typeof obj.code === 'string' &&
+      typeof obj.userFriendlyMessage === 'string'
     );
   }
 
   /**
-   * Adds an entry to the geocode cache, managing size.
+   * Create standardized error.
    */
-  private addToCache(key: string, value: GeocodedAddress): void {
-    // Remove oldest entries if cache is full
-    if (this.geocodeCache.size >= this.MAX_CACHE_SIZE) {
-      const firstKey = this.geocodeCache.keys().next().value;
-      if (firstKey) {
-        this.geocodeCache.delete(firstKey);
-      }
-    }
-    this.geocodeCache.set(key, value);
-  }
-
-  /**
-   * Clears the geocode cache.
-   * Useful for testing or when data might be stale.
-   */
-  clearCache(): void {
-    this.geocodeCache.clear();
+  private createError(code: ErrorCode, message: string): AppError {
+    return {
+      code,
+      message,
+      userFriendlyMessage: ERROR_MESSAGES[code] || ERROR_MESSAGES[ErrorCode.UNKNOWN_ERROR],
+      recoverable: code !== ErrorCode.LOCATION_PERMISSION_DENIED,
+    };
   }
 }
 
@@ -377,13 +217,5 @@ class LocationServiceClass {
 // SINGLETON EXPORT
 // ============================================================================
 
-/**
- * Singleton instance of the location service.
- * Use this throughout the app for consistent caching.
- */
 export const LocationService = new LocationServiceClass();
-
-/**
- * Export the class for testing purposes.
- */
 export { LocationServiceClass };

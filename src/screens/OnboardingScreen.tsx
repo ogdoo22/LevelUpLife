@@ -16,8 +16,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { SafeContainer, PrimaryButton } from '../components';
-import { COLORS, TYPOGRAPHY, LAYOUT } from '../constants';
+import { SafeContainer, PrimaryButton, ThemeToggle } from '../components';
+import { useTheme } from '../contexts';
+import { TYPOGRAPHY, LAYOUT } from '../constants';
 
 type OnboardingNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -32,6 +33,7 @@ interface Slide {
   emoji: string;
   title: string;
   description: string;
+  showThemeToggle?: boolean;
 }
 
 const SLIDES: Slide[] = [
@@ -49,9 +51,10 @@ const SLIDES: Slide[] = [
   },
   {
     id: '3',
-    emoji: '😂📊',
-    title: 'Get the Tea',
-    description: 'See median home prices, income levels, and receive a fun "roast" of the area. No judgment, just laughs.',
+    emoji: '🎨',
+    title: 'Pick Your Vibe',
+    description: 'Choose the aesthetic that speaks to you.',
+    showThemeToggle: true,
   },
   {
     id: '4',
@@ -67,6 +70,7 @@ const SLIDES: Slide[] = [
 
 export function OnboardingScreen(): React.ReactElement {
   const navigation = useNavigation<OnboardingNavigationProp>();
+  const { theme } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -98,15 +102,25 @@ export function OnboardingScreen(): React.ReactElement {
   };
 
   const handleGetStarted = (): void => {
-    // TODO: Store that onboarding is complete in AsyncStorage
     navigation.replace('Home');
   };
 
   const renderSlide = ({ item }: { item: Slide }): React.ReactElement => (
-    <View style={styles.slide}>
-      <Text style={styles.emoji}>{item.emoji}</Text>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.description}>{item.description}</Text>
+    <View style={styles.slideContainer}>
+      <View style={styles.slideContent}>
+        <Text style={styles.emoji}>{item.emoji}</Text>
+        <Text style={[styles.title, { color: theme.colors.TEXT_LIGHT }]}>
+          {item.title}
+        </Text>
+        <Text style={[styles.description, { color: theme.colors.TEXT_LIGHT }]}>
+          {item.description}
+        </Text>
+        {item.showThemeToggle && (
+          <View style={styles.themeToggleContainer}>
+            <ThemeToggle size="large" />
+          </View>
+        )}
+      </View>
     </View>
   );
 
@@ -115,6 +129,7 @@ export function OnboardingScreen(): React.ReactElement {
       key={index}
       style={[
         styles.dot,
+        { backgroundColor: theme.colors.TEXT_LIGHT },
         index === currentIndex && styles.dotActive,
       ]}
     />
@@ -123,12 +138,14 @@ export function OnboardingScreen(): React.ReactElement {
   const isLastSlide = currentIndex === SLIDES.length - 1;
 
   return (
-    <SafeContainer backgroundColor={COLORS.PRIMARY} statusBarStyle="light">
+    <SafeContainer backgroundColor={theme.colors.PRIMARY} statusBarStyle="light">
       <View style={styles.container}>
         {/* Skip button */}
         {!isLastSlide && (
           <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={[styles.skipText, { color: theme.colors.TEXT_LIGHT }]}>
+              Skip
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -144,6 +161,15 @@ export function OnboardingScreen(): React.ReactElement {
           onViewableItemsChanged={handleViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           bounces={false}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          snapToInterval={SCREEN_WIDTH}
+          snapToAlignment="center"
+          getItemLayout={(_, index) => ({
+            length: SCREEN_WIDTH,
+            offset: SCREEN_WIDTH * index,
+            index,
+          })}
         />
 
         {/* Pagination dots */}
@@ -163,7 +189,7 @@ export function OnboardingScreen(): React.ReactElement {
 
         {/* Privacy note on last slide */}
         {isLastSlide && (
-          <Text style={styles.privacyNote}>
+          <Text style={[styles.privacyNote, { color: theme.colors.TEXT_LIGHT }]}>
             We'll ask for location access to analyze neighborhoods.{'\n'}
             Your data stays on your device.
           </Text>
@@ -189,34 +215,42 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   skipText: {
-    color: COLORS.TEXT_LIGHT,
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
     opacity: 0.8,
   },
-  slide: {
+  slideContainer: {
     width: SCREEN_WIDTH,
+    flex: 1,
+    overflow: 'hidden',
+  },
+  slideContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
   },
   emoji: {
-    fontSize: 80,
-    marginBottom: 32,
+    fontSize: 72,
+    marginBottom: 24,
+    textAlign: 'center',
   },
   title: {
     fontSize: TYPOGRAPHY.TITLE_MEDIUM,
     fontWeight: '700',
-    color: COLORS.TEXT_LIGHT,
     textAlign: 'center',
     marginBottom: 16,
+    width: '100%',
   },
   description: {
     fontSize: TYPOGRAPHY.BODY_LARGE,
-    color: COLORS.TEXT_LIGHT,
     textAlign: 'center',
     lineHeight: 28,
     opacity: 0.9,
+    width: '100%',
+  },
+  themeToggleContainer: {
+    marginTop: 32,
+    alignItems: 'center',
   },
   pagination: {
     flexDirection: 'row',
@@ -228,7 +262,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.TEXT_LIGHT,
     opacity: 0.3,
     marginHorizontal: 6,
   },
@@ -242,7 +275,6 @@ const styles = StyleSheet.create({
   },
   privacyNote: {
     fontSize: TYPOGRAPHY.CAPTION,
-    color: COLORS.TEXT_LIGHT,
     textAlign: 'center',
     opacity: 0.7,
     paddingHorizontal: 40,

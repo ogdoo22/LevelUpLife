@@ -17,7 +17,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, CareerSuggestion } from '../types';
 import { SafeContainer, PrimaryButton, ResultCard, CareerCard } from '../components';
-import { COLORS, TYPOGRAPHY, LAYOUT, WEALTH_TIER_COLORS, ANIMATION_DURATIONS } from '../constants';
+import { useTheme } from '../contexts';
+import { TYPOGRAPHY, LAYOUT, ANIMATION_DURATIONS } from '../constants';
 import { ShareService } from '../services/shareService';
 
 type ResultsScreenRouteProp = RouteProp<RootStackParamList, 'Results'>;
@@ -29,9 +30,10 @@ type ResultsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList,
 export function ResultsScreen(): React.ReactElement {
   const navigation = useNavigation<ResultsScreenNavigationProp>();
   const route = useRoute<ResultsScreenRouteProp>();
+  const { theme } = useTheme();
   const { result } = route.params;
 
-  const tierColors = WEALTH_TIER_COLORS[result.neighborhoodData.wealthTier];
+  const tierColors = theme.wealthTierColors[result.neighborhoodData.wealthTier];
 
   // Animation values
   const headerAnim = useRef(new Animated.Value(0)).current;
@@ -109,7 +111,7 @@ export function ResultsScreen(): React.ReactElement {
   });
 
   return (
-    <SafeContainer backgroundColor={COLORS.BACKGROUND}>
+    <SafeContainer backgroundColor={theme.colors.BACKGROUND}>
       <ScrollView 
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -117,7 +119,7 @@ export function ResultsScreen(): React.ReactElement {
       >
         {/* Header with location and tier */}
         <Animated.View style={[styles.header, { backgroundColor: tierColors.background }, createAnimStyle(headerAnim)]}>
-          <Text style={styles.locationText}>
+          <Text style={[styles.locationText, { color: tierColors.text }]}>
             {result.displayStrings.fullLocationString}
           </Text>
           <View style={[styles.tierBadge, { backgroundColor: tierColors.primary }]}>
@@ -127,8 +129,13 @@ export function ResultsScreen(): React.ReactElement {
           </View>
           
           {/* Share button */}
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Text style={styles.shareButtonText}>📤 Share</Text>
+          <TouchableOpacity 
+            style={[styles.shareButton, { backgroundColor: theme.colors.SURFACE }]} 
+            onPress={handleShare}
+          >
+            <Text style={[styles.shareButtonText, { color: theme.colors.TEXT_PRIMARY }]}>
+              📤 Share
+            </Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -138,7 +145,9 @@ export function ResultsScreen(): React.ReactElement {
             title="☕ The Tea" 
             tier={result.neighborhoodData.wealthTier}
           >
-            <Text style={styles.roastText}>{result.roastMessage}</Text>
+            <Text style={[styles.roastText, { color: theme.colors.TEXT_PRIMARY }]}>
+              {result.roastMessage || 'No roast available'}
+            </Text>
           </ResultCard>
         </Animated.View>
 
@@ -148,31 +157,38 @@ export function ResultsScreen(): React.ReactElement {
             title="📊 The Numbers" 
             tier={result.neighborhoodData.wealthTier}
           >
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Median Home Price</Text>
-                <Text style={styles.statValue}>
-                  {result.displayStrings.formattedHomePrice}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Median Income</Text>
-                <Text style={styles.statValue}>
-                  {result.displayStrings.formattedIncome}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>Average Rent</Text>
-                <Text style={styles.statValue}>
-                  {result.displayStrings.formattedRent}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statLabel}>To Live Here</Text>
-                <Text style={[styles.statValue, { color: tierColors.primary }]}>
-                  {result.displayStrings.incomeNeededDisplay}
-                </Text>
-              </View>
+            <View style={styles.statRow}>
+              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
+                Median Home Price
+              </Text>
+              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
+                {result.displayStrings.formattedHomePrice || 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.statRow}>
+              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
+                Median Income
+              </Text>
+              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
+                {result.displayStrings.formattedIncome || 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.statRow}>
+              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
+                Average Rent
+              </Text>
+              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
+                {result.displayStrings.formattedRent || 'N/A'}
+              </Text>
+            </View>
+            {/* To Live Here - special layout for long text */}
+            <View style={styles.toLiveHereContainer}>
+              <Text style={[styles.toLiveHereLabel, { color: theme.colors.TEXT_SECONDARY }]}>
+                To Live Here
+              </Text>
+              <Text style={[styles.toLiveHereValue, { color: tierColors.primary }]}>
+                {result.displayStrings.incomeNeededDisplay || 'N/A'}
+              </Text>
             </View>
           </ResultCard>
         </Animated.View>
@@ -183,16 +199,28 @@ export function ResultsScreen(): React.ReactElement {
             title="🚀 Your Level Up Plan" 
             tier={result.neighborhoodData.wealthTier}
           >
-            {result.levelUpSteps.map((step) => (
-              <View key={step.stepNumber} style={styles.stepItem}>
-                <View style={[styles.stepNumber, { backgroundColor: tierColors.primary }]}>
+            {result.levelUpSteps.map((step, index) => (
+              <View 
+                key={step.stepNumber} 
+                style={[
+                  styles.stepItem,
+                  index === result.levelUpSteps.length - 1 && styles.stepItemLast
+                ]}
+              >
+                <View style={[styles.stepNumberCircle, { backgroundColor: tierColors.primary }]}>
                   <Text style={styles.stepNumberText}>{step.stepNumber}</Text>
                 </View>
-                <View style={styles.stepContent}>
-                  <Text style={styles.stepAction}>{step.action}</Text>
-                  <Text style={styles.stepNote}>{step.funNote}</Text>
+                <View style={styles.stepTextContainer}>
+                  <Text style={[styles.stepAction, { color: theme.colors.TEXT_PRIMARY }]}>
+                    {step.action}
+                  </Text>
+                  <Text style={[styles.stepNote, { color: theme.colors.TEXT_SECONDARY }]}>
+                    {step.funNote}
+                  </Text>
                   {step.estimatedImpact && (
-                    <Text style={styles.stepImpact}>{step.estimatedImpact}</Text>
+                    <Text style={[styles.stepImpact, { color: theme.colors.SUCCESS }]}>
+                      {step.estimatedImpact}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -202,7 +230,9 @@ export function ResultsScreen(): React.ReactElement {
 
         {/* Career Suggestions */}
         <Animated.View style={[styles.careersSection, createAnimStyle(careersAnim)]}>
-          <Text style={styles.sectionTitle}>💼 Careers That Could Get You There</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.TEXT_PRIMARY }]}>
+            💼 Careers That Could Get You There
+          </Text>
           <FlatList
             data={result.careerSuggestions}
             renderItem={renderCareerCard}
@@ -214,8 +244,10 @@ export function ResultsScreen(): React.ReactElement {
         </Animated.View>
 
         {/* Motivation */}
-        <Animated.View style={[styles.motivationBox, createAnimStyle(motivationAnim)]}>
-          <Text style={styles.motivationText}>{result.motivationalMessage}</Text>
+        <Animated.View style={[styles.motivationBox, { backgroundColor: theme.colors.PRIMARY }, createAnimStyle(motivationAnim)]}>
+          <Text style={styles.motivationText}>
+            {result.motivationalMessage}
+          </Text>
         </Animated.View>
 
         {/* Action Buttons */}
@@ -248,7 +280,6 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: TYPOGRAPHY.TITLE_MEDIUM,
     fontWeight: '700',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -261,14 +292,13 @@ const styles = StyleSheet.create({
   tierText: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
     fontWeight: '600',
-    color: COLORS.TEXT_LIGHT,
+    color: '#FFFFFF',
   },
   shareButton: {
-    backgroundColor: COLORS.SURFACE,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    shadowColor: COLORS.SHADOW,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -277,66 +307,81 @@ const styles = StyleSheet.create({
   shareButtonText: {
     fontSize: TYPOGRAPHY.BODY_SMALL,
     fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
   },
   roastText: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    color: COLORS.TEXT_PRIMARY,
     lineHeight: 26,
     fontStyle: 'italic',
   },
-  statsGrid: {
-    gap: 16,
-  },
-  statItem: {
+  statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   statLabel: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    color: COLORS.TEXT_SECONDARY,
+    flexShrink: 0,
   },
   statValue: {
     fontSize: TYPOGRAPHY.BODY_LARGE,
     fontWeight: '700',
-    color: COLORS.TEXT_PRIMARY,
+    marginLeft: 12,
+  },
+  toLiveHereContainer: {
+    paddingTop: 16,
+    alignItems: 'center',
+  },
+  toLiveHereLabel: {
+    fontSize: TYPOGRAPHY.BODY_MEDIUM,
+    marginBottom: 8,
+  },
+  toLiveHereValue: {
+    fontSize: TYPOGRAPHY.TITLE_SMALL,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   stepItem: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  stepItemLast: {
+    marginBottom: 0,
+  },
+  stepNumberCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    flexShrink: 0,
   },
   stepNumberText: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
+    fontSize: TYPOGRAPHY.BODY_MEDIUM,
     fontWeight: '700',
-    color: COLORS.TEXT_LIGHT,
+    color: '#FFFFFF',
   },
-  stepContent: {
+  stepTextContainer: {
     flex: 1,
+    paddingTop: 4,
   },
   stepAction: {
     fontSize: TYPOGRAPHY.BODY_MEDIUM,
     fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 4,
   },
   stepNote: {
     fontSize: TYPOGRAPHY.BODY_SMALL,
-    color: COLORS.TEXT_SECONDARY,
     fontStyle: 'italic',
+    lineHeight: 20,
   },
   stepImpact: {
     fontSize: TYPOGRAPHY.CAPTION,
-    color: COLORS.SUCCESS,
-    marginTop: 4,
+    marginTop: 6,
     fontWeight: '600',
   },
   careersSection: {
@@ -346,7 +391,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: TYPOGRAPHY.TITLE_SMALL,
     fontWeight: '700',
-    color: COLORS.TEXT_PRIMARY,
     marginBottom: 16,
     paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
   },
@@ -354,14 +398,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
   },
   motivationBox: {
-    backgroundColor: COLORS.PRIMARY,
     margin: LAYOUT.PADDING_HORIZONTAL,
     padding: LAYOUT.PADDING_HORIZONTAL,
     borderRadius: LAYOUT.CARD_BORDER_RADIUS,
   },
   motivationText: {
     fontSize: TYPOGRAPHY.BODY_LARGE,
-    color: COLORS.TEXT_LIGHT,
+    color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 28,
   },
