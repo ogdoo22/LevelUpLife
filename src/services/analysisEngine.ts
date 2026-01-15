@@ -31,7 +31,7 @@ import {
   formatLocationString,
   formatIncomeNeededDisplay,
 } from '../utils';
-import { ERROR_MESSAGES, WEALTH_TIER_DISPLAY_NAMES } from '../constants';
+import { ERROR_MESSAGES } from '../constants';
 
 // ============================================================================
 // TYPES
@@ -166,10 +166,11 @@ class AnalysisEngineClass {
       neighborhoodData.wealthTier
     );
 
-    // Generate display strings
+    // Generate display strings (pass custom name for location string)
     const displayStrings = this.generateDisplayStrings(
       neighborhoodData,
-      incomeNeeded
+      incomeNeeded,
+      customNeighborhoodName
     );
 
     // Generate neighborhood context (optional enrichment)
@@ -219,14 +220,17 @@ class AnalysisEngineClass {
    */
   private generateDisplayStrings(
     data: NeighborhoodData,
-    incomeNeeded: number
+    incomeNeeded: number,
+    customCityName?: string | null
   ): AnalysisDisplayStrings {
+    const cityToDisplay = customCityName || data.city;
+    
     return {
       formattedHomePrice: formatCurrency(data.medianHomePrice),
       formattedIncome: formatCurrency(data.medianHouseholdIncome),
       formattedRent: formatMonthlyAmount(data.averageRent),
       fullLocationString: formatLocationString(
-        data.city,
+        cityToDisplay,
         data.state,
         data.zipCode
       ),

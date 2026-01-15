@@ -171,31 +171,6 @@ class MockNeighborhoodDataProvider implements INeighborhoodDataProvider {
 }
 
 // ============================================================================
-// REAL API PROVIDER (PLACEHOLDER FOR FUTURE)
-// ============================================================================
-
-/**
- * Placeholder for real API implementation.
- * To be implemented when integrating with Zillow, Census, etc.
- */
-// class RealEstateAPIProvider implements INeighborhoodDataProvider {
-//   readonly providerName = 'RealEstateAPI';
-//
-//   constructor(
-//     private readonly zillowApiKey: string,
-//     private readonly censusApiKey: string
-//   ) {}
-//
-//   async getNeighborhoodData(zipCode: string): Promise<NeighborhoodData> {
-//     // TODO: Implement real API calls
-//     // 1. Call Zillow API for home prices
-//     // 2. Call Census API for income data
-//     // 3. Combine and return
-//     throw new Error('Not implemented');
-//   }
-// }
-
-// ============================================================================
 // NEIGHBORHOOD DATA SERVICE
 // ============================================================================
 
@@ -220,6 +195,14 @@ class NeighborhoodDataServiceClass {
    * @returns Neighborhood data
    */
   async getNeighborhoodData(zipCode: string): Promise<NeighborhoodData> {
+    // Validate ZIP code at service level FIRST
+    if (!validateZipCode(zipCode)) {
+      throw this.createError(
+        ErrorCode.ZIP_CODE_INVALID,
+        `Invalid ZIP code format: ${zipCode}`
+      );
+    }
+
     const normalizedZip = normalizeZipCode(zipCode);
     
     // Check cache first

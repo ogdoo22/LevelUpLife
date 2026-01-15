@@ -13,8 +13,8 @@ import {
   getWealthTierDisplayName,
   formatLocationString,
   formatIncomeNeededDisplay,
-} from '../../utils/textGenerator';
-import { WealthTier } from '../../types';
+} from '../../../utils/textGenerator';
+import { WealthTier } from '../../../types';
 
 // ============================================================================
 // generateRoast TESTS

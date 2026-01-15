@@ -156,28 +156,29 @@ export function selectRelevantCareers(
 ): CareerSuggestion[] {
   // Filter careers that can achieve the target income
   const relevantCareers = CAREER_DATABASE.filter((career) => {
-    // Career's max salary should be at least 80% of target
     const canAchieveTarget = career.salaryMax >= targetIncome * 0.8;
-    
-    // Not in excluded categories
     const notExcluded = !excludeCategories.includes(career.category);
-    
     return canAchieveTarget && notExcluded;
   });
 
-  // If no careers match, return highest-paying ones
-  if (relevantCareers.length === 0) {
-    const sortedByMax = [...CAREER_DATABASE].sort((a, b) => b.salaryMax - a.salaryMax);
-    return sortedByMax.slice(0, count);
+  // If we have fewer careers than requested, supplement with highest-paying ones
+  if (relevantCareers.length < count) {
+    const sortedByMax = [...CAREER_DATABASE]
+      .filter((c) => !excludeCategories.includes(c.category))
+      .sort((a, b) => b.salaryMax - a.salaryMax);
+    
+    for (const career of sortedByMax) {
+      if (!relevantCareers.some((c) => c.title === career.title)) {
+        relevantCareers.push(career);
+      }
+      if (relevantCareers.length >= count) break;
+    }
   }
 
-  // Sort by how well they match the target (prefer careers where target is achievable but not overkill)
+  // Sort by how well they match the target
   const scored = relevantCareers.map((career) => {
-    // Score based on how close median is to target
     const medianDiff = Math.abs(career.salaryMedian - targetIncome);
-    // Bonus for high demand
     const demandBonus = career.highDemand ? 10000 : 0;
-    // Prefer lower difficulty
     const difficultyPenalty = career.difficultyRating * 5000;
     
     return {
@@ -186,7 +187,6 @@ export function selectRelevantCareers(
     };
   });
 
-  // Sort by score (lower is better) and take top N
   scored.sort((a, b) => a.score - b.score);
   
   // Select from top matches with some randomization

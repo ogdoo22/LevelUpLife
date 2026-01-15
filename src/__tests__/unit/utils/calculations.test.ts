@@ -6,13 +6,11 @@
 import {
   calculateWealthTier,
   calculateTierGap,
-  getTierOrder,
   formatCurrency,
   formatMonthlyAmount,
   calculateYearsToGoal,
   calculateIncomeNeededForHome,
   calculateAffordableRent,
-  calculateIncomeGap,
   validateCoordinates,
   validateZipCode,
   normalizeZipCode,
@@ -20,8 +18,8 @@ import {
   selectRandomMultiple,
   replacePlaceholders,
   truncateText,
-} from '../../utils/calculations';
-import { WealthTier } from '../../types';
+} from '../../../utils/calculations';
+import { WealthTier } from '../../../types';
 
 // ============================================================================
 // calculateWealthTier TESTS
