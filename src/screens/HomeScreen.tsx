@@ -196,7 +196,7 @@ export function HomeScreen(): React.ReactElement {
             <Text style={[styles.headerTitle, { color: theme.colors.TEXT_PRIMARY }]}>
               Where should we{'\n'}
               <Text style={[styles.headerTitleAccent, { fontFamily: FONTS.display }]}>
-                Level Up
+                NeighborFi
               </Text>
               {' '}next?
             </Text>

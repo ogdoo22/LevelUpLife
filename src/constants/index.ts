@@ -1,5 +1,5 @@
 /**
- * @fileoverview Central constants for Level Up Life.
+ * @fileoverview Central constants for NeighborFi.
  */
 
 import { WealthTier, CareerCategory, ErrorCode } from '../types';
@@ -8,7 +8,7 @@ import { WealthTier, CareerCategory, ErrorCode } from '../types';
 // APP INFO
 // ============================================================================
 
-export const APP_NAME = 'Level Up Life';
+export const APP_NAME = 'NeighborFi';
 export const APP_VERSION = '1.0.0';
 
 // ============================================================================

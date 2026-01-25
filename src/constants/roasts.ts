@@ -299,7 +299,7 @@ export const LOCATION_EASTER_EGGS: Record<string, string> = {
  * Templates for shareable content.
  */
 export const SHARE_TEMPLATES = {
-  RESULT_SHARE: "I just found out what it takes to live in {{neighborhood}}! 💰 Median home: {{homePrice}} | Income needed: {{income}} | My career path: {{career}}. Check your neighborhood on Level Up Life!",
+  RESULT_SHARE: "I just found out what it takes to live in {{neighborhood}}! 💰 Median home: {{homePrice}} | Income needed: {{income}} | My career path: {{career}}. Check your neighborhood on NeighborFi!",
   
-  ROAST_SHARE: "Level Up Life just roasted my dream neighborhood 💀: '{{shortRoast}}' - Download the app to get your reality check!",
+  ROAST_SHARE: "NeighborFi just roasted my dream neighborhood 💀: '{{shortRoast}}' - Download the app to get your reality check!",
 } as const;

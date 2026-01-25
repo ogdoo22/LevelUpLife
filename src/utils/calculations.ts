@@ -1,5 +1,5 @@
 /**
- * @fileoverview Pure calculation utilities for Level Up Life.
+ * @fileoverview Pure calculation utilities for NeighborFi
  * All functions are pure - same inputs always produce same outputs.
  * No side effects, no external dependencies beyond constants.
  */

@@ -5,7 +5,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AnalysisResult } from '../types';
 
-const HISTORY_STORAGE_KEY = '@leveluplife_history';
+const HISTORY_STORAGE_KEY = '@neighborfi_history';
 const MAX_HISTORY_ITEMS = 50;
 
 export interface HistoryItem {

@@ -41,7 +41,7 @@ const SLIDES: Slide[] = [
   {
     id: '1',
     preTitle: 'Welcome to',
-    titleAccent: 'Level Up Life',
+    titleAccent: 'NeighborFi',
     description: 'Discover what it truly takes to live in the neighborhoods you dream about.',
   },
   {

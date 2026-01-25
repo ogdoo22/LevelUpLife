@@ -133,7 +133,7 @@ class ShareServiceClass {
       '💼 Career Paths:',
       ...result.careerSuggestions.map((c) => `• ${c.title} (${c.salaryMin / 1000}K-${c.salaryMax / 1000}K)`),
       '',
-      '- Analyzed with Level Up Life 🏠💰',
+      '- Discovered with NeighborFi',
     ];
 
     return lines.join('\n');
