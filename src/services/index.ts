@@ -35,3 +35,11 @@ export {
   HistoryServiceClass,
   type HistoryItem,
 } from './historyService';
+export {
+  OnboardingService,
+  OnboardingServiceClass,
+} from './onboardingService';
+export {
+  ImageService,
+  ImageServiceClass,
+} from './imageService';

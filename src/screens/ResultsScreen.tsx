@@ -1,5 +1,5 @@
 /**
- * @fileoverview Results screen - displays neighborhood analysis.
+ * @fileoverview Luxurious results screen - the viral moment.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -8,25 +8,31 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   Animated,
   Alert,
+  Image,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { RootStackParamList, CareerSuggestion } from '../types';
-import { SafeContainer, PrimaryButton, ResultCard, CareerCard } from '../components';
+import { SafeContainer, TierBadge } from '../components';
 import { useTheme } from '../contexts';
-import { TYPOGRAPHY, LAYOUT, ANIMATION_DURATIONS } from '../constants';
-import { ShareService } from '../services/shareService';
+import { FONTS, SPACING } from '../constants/themes';
+import { ShareService, ImageService } from '../services';
+import { formatCurrency } from '../utils';
 
 type ResultsScreenRouteProp = RouteProp<RootStackParamList, 'Results'>;
 type ResultsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>;
 
-/**
- * Results screen showing neighborhood analysis.
- */
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 export function ResultsScreen(): React.ReactElement {
   const navigation = useNavigation<ResultsScreenNavigationProp>();
   const route = useRoute<ResultsScreenRouteProp>();
@@ -34,235 +40,305 @@ export function ResultsScreen(): React.ReactElement {
   const { result } = route.params;
 
   const tierColors = theme.wealthTierColors[result.neighborhoodData.wealthTier];
+  const neighborhoodImage = ImageService.getCityImage(
+    result.neighborhoodData.city,
+    result.neighborhoodData.wealthTier
+  );
 
   // Animation values
-  const headerAnim = useRef(new Animated.Value(0)).current;
-  const roastAnim = useRef(new Animated.Value(0)).current;
-  const numbersAnim = useRef(new Animated.Value(0)).current;
-  const stepsAnim = useRef(new Animated.Value(0)).current;
-  const careersAnim = useRef(new Animated.Value(0)).current;
-  const motivationAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
-  // Run entrance animations
   useEffect(() => {
-    const staggerDelay = ANIMATION_DURATIONS.STAGGER_DELAY;
-    
-    Animated.stagger(staggerDelay, [
-      Animated.timing(headerAnim, {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
+        duration: 600,
         useNativeDriver: true,
       }),
-      Animated.timing(roastAnim, {
-        toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
-        useNativeDriver: true,
-      }),
-      Animated.timing(numbersAnim, {
-        toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
-        useNativeDriver: true,
-      }),
-      Animated.timing(stepsAnim, {
-        toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
-        useNativeDriver: true,
-      }),
-      Animated.timing(careersAnim, {
-        toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
-        useNativeDriver: true,
-      }),
-      Animated.timing(motivationAnim, {
-        toValue: 1,
-        duration: ANIMATION_DURATIONS.NORMAL,
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  const handleTryAnother = (): void => {
-    navigation.navigate('Home');
+  const handleBack = (): void => {
+    navigation.goBack();
   };
 
   const handleShare = async (): Promise<void> => {
     const shareResult = await ShareService.shareResult(result);
-    
     if (shareResult.action === 'error') {
       Alert.alert('Share Failed', shareResult.error || 'Could not share results');
     }
   };
 
-  const renderCareerCard = ({ item }: { item: CareerSuggestion }): React.ReactElement => (
-    <CareerCard career={item} />
-  );
+  const handleTryAnother = (): void => {
+    navigation.navigate('Home');
+  };
 
-  // Animation styles
-  const createAnimStyle = (anim: Animated.Value) => ({
-    opacity: anim,
-    transform: [
-      {
-        translateY: anim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [20, 0],
-        }),
-      },
-    ],
-  });
+  const animatedStyle = {
+    opacity: fadeAnim,
+    transform: [{ translateY: slideAnim }],
+  };
 
   return (
     <SafeContainer backgroundColor={theme.colors.BACKGROUND}>
-      <ScrollView 
+      <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with location and tier */}
-        <Animated.View style={[styles.header, { backgroundColor: tierColors.background }, createAnimStyle(headerAnim)]}>
-          <Text style={[styles.locationText, { color: tierColors.text }]}>
-            {result.displayStrings.fullLocationString}
-          </Text>
-          <View style={[styles.tierBadge, { backgroundColor: tierColors.primary }]}>
-            <Text style={styles.tierText}>
-              {result.displayStrings.wealthTierDisplay}
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Image
+            source={{ uri: neighborhoodImage }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            style={styles.heroGradient}
+          />
+          
+          {/* Back Button */}
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+
+          {/* Share Button */}
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+            <Text style={styles.shareButtonText}>Share</Text>
+          </TouchableOpacity>
+
+          {/* Hero Content */}
+          <View style={styles.heroContent}>
+            <TierBadge tier={result.neighborhoodData.wealthTier} size="medium" />
+            <Text style={styles.heroLocation}>
+              {result.displayStrings.fullLocationString}
             </Text>
           </View>
+        </View>
+
+        {/* Main Content */}
+        <Animated.View style={[styles.mainContent, animatedStyle]}>
           
-          {/* Share button */}
-          <TouchableOpacity 
-            style={[styles.shareButton, { backgroundColor: theme.colors.SURFACE }]} 
-            onPress={handleShare}
-          >
-            <Text style={[styles.shareButtonText, { color: theme.colors.TEXT_PRIMARY }]}>
-              📤 Share
+          {/* The Tea Section */}
+          <View style={[styles.card, { backgroundColor: theme.colors.SURFACE }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardAccent, { backgroundColor: tierColors.primary }]} />
+              <Text style={[styles.cardLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                THE TEA
+              </Text>
+            </View>
+            <Text style={[styles.roastText, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.display }]}>
+              "{result.roastMessage}"
             </Text>
-          </TouchableOpacity>
-        </Animated.View>
+          </View>
 
-        {/* The Roast */}
-        <Animated.View style={createAnimStyle(roastAnim)}>
-          <ResultCard 
-            title="☕ The Tea" 
-            tier={result.neighborhoodData.wealthTier}
-          >
-            <Text style={[styles.roastText, { color: theme.colors.TEXT_PRIMARY }]}>
-              {result.roastMessage || 'No roast available'}
-            </Text>
-          </ResultCard>
-        </Animated.View>
+          {/* The Numbers Section */}
+          <View style={[styles.card, { backgroundColor: theme.colors.SURFACE }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardAccent, { backgroundColor: tierColors.primary }]} />
+              <Text style={[styles.cardLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                THE NUMBERS
+              </Text>
+            </View>
 
-        {/* The Numbers */}
-        <Animated.View style={createAnimStyle(numbersAnim)}>
-          <ResultCard 
-            title="📊 The Numbers" 
-            tier={result.neighborhoodData.wealthTier}
-          >
-            <View style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
-                Median Home Price
-              </Text>
-              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
-                {result.displayStrings.formattedHomePrice || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
-                Median Income
-              </Text>
-              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
-                {result.displayStrings.formattedIncome || 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: theme.colors.TEXT_SECONDARY }]}>
-                Average Rent
-              </Text>
-              <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY }]}>
-                {result.displayStrings.formattedRent || 'N/A'}
-              </Text>
-            </View>
-            {/* To Live Here - special layout for long text */}
-            <View style={styles.toLiveHereContainer}>
-              <Text style={[styles.toLiveHereLabel, { color: theme.colors.TEXT_SECONDARY }]}>
-                To Live Here
-              </Text>
-              <Text style={[styles.toLiveHereValue, { color: tierColors.primary }]}>
-                {result.displayStrings.incomeNeededDisplay || 'N/A'}
-              </Text>
-            </View>
-          </ResultCard>
-        </Animated.View>
+            <View style={styles.numbersGrid}>
+              <View style={styles.numberItem}>
+                <Text style={[styles.numberLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  Median Home
+                </Text>
+                <Text style={[styles.numberValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  {result.displayStrings.formattedHomePrice}
+                </Text>
+              </View>
 
-        {/* Level Up Steps */}
-        <Animated.View style={createAnimStyle(stepsAnim)}>
-          <ResultCard 
-            title="🚀 Your Level Up Plan" 
-            tier={result.neighborhoodData.wealthTier}
-          >
+              <View style={styles.numberItem}>
+                <Text style={[styles.numberLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  Median Income
+                </Text>
+                <Text style={[styles.numberValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  {result.displayStrings.formattedIncome}
+                </Text>
+              </View>
+
+              <View style={styles.numberItem}>
+                <Text style={[styles.numberLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  Average Rent
+                </Text>
+                <Text style={[styles.numberValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  {result.displayStrings.formattedRent}
+                </Text>
+              </View>
+
+              <View style={styles.numberItem}>
+                <Text style={[styles.numberLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  To Live Here
+                </Text>
+                <Text style={[styles.numberValueHighlight, { color: tierColors.primary, fontFamily: FONTS.bodySemiBold }]}>
+                  {result.displayStrings.incomeNeededDisplay}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Level Up Plan Section */}
+          <View style={[styles.card, { backgroundColor: theme.colors.SURFACE }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.cardAccent, { backgroundColor: tierColors.primary }]} />
+              <Text style={[styles.cardLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                YOUR PATH FORWARD
+              </Text>
+            </View>
+
             {result.levelUpSteps.map((step, index) => (
-              <View 
-                key={step.stepNumber} 
+              <View
+                key={step.stepNumber}
                 style={[
                   styles.stepItem,
-                  index === result.levelUpSteps.length - 1 && styles.stepItemLast
+                  index === result.levelUpSteps.length - 1 && styles.stepItemLast,
                 ]}
               >
-                <View style={[styles.stepNumberCircle, { backgroundColor: tierColors.primary }]}>
+                <View style={[styles.stepNumber, { backgroundColor: tierColors.primary }]}>
                   <Text style={styles.stepNumberText}>{step.stepNumber}</Text>
                 </View>
-                <View style={styles.stepTextContainer}>
-                  <Text style={[styles.stepAction, { color: theme.colors.TEXT_PRIMARY }]}>
+                <View style={styles.stepContent}>
+                  <Text style={[styles.stepAction, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
                     {step.action}
                   </Text>
-                  <Text style={[styles.stepNote, { color: theme.colors.TEXT_SECONDARY }]}>
+                  <Text style={[styles.stepNote, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
                     {step.funNote}
                   </Text>
                   {step.estimatedImpact && (
-                    <Text style={[styles.stepImpact, { color: theme.colors.SUCCESS }]}>
-                      {step.estimatedImpact}
-                    </Text>
+                    <View style={[styles.impactBadge, { backgroundColor: theme.colors.SUCCESS + '20' }]}>
+                      <Text style={[styles.impactText, { color: theme.colors.SUCCESS, fontFamily: FONTS.bodyMedium }]}>
+                        {step.estimatedImpact}
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>
             ))}
-          </ResultCard>
-        </Animated.View>
+          </View>
 
-        {/* Career Suggestions */}
-        <Animated.View style={[styles.careersSection, createAnimStyle(careersAnim)]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.TEXT_PRIMARY }]}>
-            💼 Careers That Could Get You There
-          </Text>
-          <FlatList
-            data={result.careerSuggestions}
-            renderItem={renderCareerCard}
-            keyExtractor={(item) => item.title}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.careersList}
-          />
-        </Animated.View>
+          {/* Career Paths Section */}
+          <View style={styles.careersSection}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+              CAREER PATHS
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+              Roles that could get you there
+            </Text>
 
-        {/* Motivation */}
-        <Animated.View style={[styles.motivationBox, { backgroundColor: theme.colors.PRIMARY }, createAnimStyle(motivationAnim)]}>
-          <Text style={styles.motivationText}>
-            {result.motivationalMessage}
-          </Text>
-        </Animated.View>
+            {result.careerSuggestions.map((career, index) => (
+              <CareerPathCard
+                key={career.title}
+                career={career}
+                theme={theme}
+                tierColors={tierColors}
+                index={index}
+              />
+            ))}
+          </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionContainer}>
-          <PrimaryButton
-            label="🔄 Try Another Spot"
+          {/* Motivation Section */}
+          <LinearGradient
+            colors={tierColors.gradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.motivationCard}
+          >
+            <Text style={[styles.motivationText, { fontFamily: FONTS.display }]}>
+              {result.motivationalMessage}
+            </Text>
+          </LinearGradient>
+
+          {/* Action Button */}
+          <TouchableOpacity
+            style={[styles.actionButton, { borderColor: theme.colors.BORDER }]}
             onPress={handleTryAnother}
-            variant="outline"
-            size="large"
-          />
-        </View>
+          >
+            <Text style={[styles.actionButtonText, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+              Explore Another Neighborhood
+            </Text>
+          </TouchableOpacity>
+
+        </Animated.View>
       </ScrollView>
     </SafeContainer>
   );
 }
+
+// ============================================================================
+// CAREER PATH CARD COMPONENT
+// ============================================================================
+
+interface CareerPathCardProps {
+  career: CareerSuggestion;
+  theme: any;
+  tierColors: any;
+  index: number;
+}
+
+function CareerPathCard({ career, theme, tierColors, index }: CareerPathCardProps): React.ReactElement {
+  const salaryRange = `${formatCurrency(career.salaryMin)} - ${formatCurrency(career.salaryMax)}`;
+
+  return (
+    <View style={[careerStyles.card, { backgroundColor: theme.colors.SURFACE }]}>
+      {career.highDemand && (
+        <View style={[careerStyles.demandBadge, { backgroundColor: theme.colors.SUCCESS }]}>
+          <Text style={careerStyles.demandText}>HIGH DEMAND</Text>
+        </View>
+      )}
+
+      <Text style={[careerStyles.title, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.display }]}>
+        {career.title}
+      </Text>
+
+      <Text style={[careerStyles.description, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+        {career.funDescription}
+      </Text>
+
+      <View style={careerStyles.salarySection}>
+        <Text style={[careerStyles.salaryLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+          ESTIMATED COMPENSATION
+        </Text>
+        <Text style={[careerStyles.salaryValue, { color: tierColors.primary, fontFamily: FONTS.bodySemiBold }]}>
+          {salaryRange}
+        </Text>
+      </View>
+
+      <View style={[careerStyles.divider, { backgroundColor: theme.colors.BORDER }]} />
+
+      <View style={careerStyles.detailsRow}>
+        <View style={careerStyles.detailItem}>
+          <Text style={[careerStyles.detailLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+            Education
+          </Text>
+          <Text style={[careerStyles.detailValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodyMedium }]}>
+            {career.educationRequired}
+          </Text>
+        </View>
+        <View style={careerStyles.detailItem}>
+          <Text style={[careerStyles.detailLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+            Timeline
+          </Text>
+          <Text style={[careerStyles.detailValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodyMedium }]}>
+            ~{career.yearsToAchieve} years
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -271,147 +347,271 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 40,
   },
-  header: {
-    padding: LAYOUT.PADDING_HORIZONTAL,
-    paddingTop: 24,
-    paddingBottom: 24,
+
+  // Hero Section
+  heroSection: {
+    height: 280,
+    position: 'relative',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 16,
+    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  locationText: {
-    fontSize: TYPOGRAPHY.TITLE_MEDIUM,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  tierBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 12,
-  },
-  tierText: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  backButtonText: {
+    fontSize: 20,
+    color: '#333',
   },
   shareButton: {
+    position: 'absolute',
+    top: 16,
+    right: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   shareButtonText: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#333',
   },
+  heroContent: {
+    position: 'absolute',
+    bottom: 24,
+    left: 24,
+    right: 24,
+  },
+  heroLocation: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: SPACING.sm,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  // Main Content
+  mainContent: {
+    padding: SPACING.xl,
+    marginTop: -20,
+  },
+
+  // Card Styles
+  card: {
+    borderRadius: 16,
+    padding: SPACING.xl,
+    marginBottom: SPACING.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  cardAccent: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    marginRight: SPACING.sm,
+  },
+  cardLabel: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+
+  // Roast Section
   roastText: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 32,
     fontStyle: 'italic',
   },
-  statRow: {
+
+  // Numbers Section
+  numbersGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    flexWrap: 'wrap',
   },
-  statLabel: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    flexShrink: 0,
+  numberItem: {
+    width: '50%',
+    marginBottom: SPACING.lg,
   },
-  statValue: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
-    fontWeight: '700',
-    marginLeft: 12,
+  numberLabel: {
+    fontSize: 11,
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  toLiveHereContainer: {
-    paddingTop: 16,
-    alignItems: 'center',
+  numberValue: {
+    fontSize: 20,
   },
-  toLiveHereLabel: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    marginBottom: 8,
+  numberValueHighlight: {
+    fontSize: 22,
   },
-  toLiveHereValue: {
-    fontSize: TYPOGRAPHY.TITLE_SMALL,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+
+  // Steps Section
   stepItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   stepItemLast: {
     marginBottom: 0,
   },
-  stepNumberCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
-    marginRight: 12,
-    flexShrink: 0,
+    alignItems: 'center',
+    marginRight: SPACING.md,
   },
   stepNumberText: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  stepTextContainer: {
+  stepContent: {
     flex: 1,
-    paddingTop: 4,
   },
   stepAction: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    fontWeight: '600',
+    fontSize: 15,
     marginBottom: 4,
   },
   stepNote: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-    fontStyle: 'italic',
+    fontSize: 13,
     lineHeight: 20,
   },
-  stepImpact: {
-    fontSize: TYPOGRAPHY.CAPTION,
-    marginTop: 6,
-    fontWeight: '600',
+  impactBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: SPACING.sm,
   },
+  impactText: {
+    fontSize: 12,
+  },
+
+  // Careers Section
   careersSection: {
-    marginTop: 8,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.TITLE_SMALL,
-    fontWeight: '700',
-    marginBottom: 16,
-    paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    marginBottom: 4,
   },
-  careersList: {
-    paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
+  sectionSubtitle: {
+    fontSize: 14,
+    marginBottom: SPACING.lg,
   },
-  motivationBox: {
-    margin: LAYOUT.PADDING_HORIZONTAL,
-    padding: LAYOUT.PADDING_HORIZONTAL,
-    borderRadius: LAYOUT.CARD_BORDER_RADIUS,
+
+  // Motivation Section
+  motivationCard: {
+    borderRadius: 16,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
   },
   motivationText: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
+    fontSize: 20,
+    lineHeight: 30,
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 28,
+    fontStyle: 'italic',
   },
-  actionContainer: {
-    paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
-    paddingTop: 24,
+
+  // Action Button
+  actionButton: {
+    borderWidth: 1,
+    borderRadius: 30,
+    paddingVertical: 16,
     alignItems: 'center',
+  },
+  actionButtonText: {
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+});
+
+const careerStyles = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+    padding: SPACING.xl,
+    marginBottom: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  demandBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: SPACING.md,
+  },
+  demandText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: SPACING.sm,
+    fontStyle: 'italic',
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: SPACING.lg,
+  },
+  salarySection: {
+    marginBottom: SPACING.lg,
+  },
+  salaryLabel: {
+    fontSize: 10,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  salaryValue: {
+    fontSize: 24,
+  },
+  divider: {
+    height: 1,
+    marginBottom: SPACING.lg,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+  },
+  detailItem: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
   },
 });
 

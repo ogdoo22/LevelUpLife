@@ -15,7 +15,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { SafeContainer, PrimaryButton } from '../components';
+import { SafeContainer } from '../components';
+import { OnboardingService } from '../services';
 import { useTheme } from '../contexts';
 import { FONTS, SPACING } from '../constants/themes';
 import { LAYOUT } from '../constants';
@@ -31,8 +32,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface Slide {
   id: string;
   preTitle?: string;
-  title: string;
-  titleAccent?: string;
+  titleAccent: string;
   postTitle?: string;
   description: string;
 }
@@ -101,7 +101,8 @@ export function OnboardingScreen(): React.ReactElement {
     handleGetStarted();
   };
 
-  const handleGetStarted = (): void => {
+  const handleGetStarted = async (): Promise<void> => {
+    await OnboardingService.markComplete();
     navigation.replace('Home');
   };
 

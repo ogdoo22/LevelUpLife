@@ -1,5 +1,5 @@
 /**
- * @fileoverview Luxurious home screen with tier discovery feature.
+ * @fileoverview Luxurious home screen with tier discovery feature and neighborhood images.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -10,8 +10,8 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  FlatList,
   Animated,
+  Image,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,7 +24,7 @@ import {
   LocationCard,
 } from '../components';
 import { useLocation, useAnalysis } from '../hooks';
-import { HistoryService, HistoryItem } from '../services';
+import { HistoryService, HistoryItem, ImageService } from '../services';
 import { useTheme } from '../contexts';
 import { FONTS, SPACING } from '../constants/themes';
 import { FUN_LOADING_MESSAGES } from '../constants';
@@ -42,38 +42,39 @@ interface DiscoveryNeighborhood {
   zip: string;
   homePrice: number;
   description: string;
+  imageUrl: string;
 }
 
 const DISCOVERY_DATA: Record<WealthTier, DiscoveryNeighborhood[]> = {
   [WealthTier.ULTRA_WEALTHY]: [
-    { name: 'Beverly Hills', state: 'CA', zip: '90210', homePrice: 6500000, description: 'Where dreams have 5-car garages' },
-    { name: 'Atherton', state: 'CA', zip: '94027', homePrice: 7500000, description: 'Tech billionaire territory' },
-    { name: 'Palm Beach', state: 'FL', zip: '33480', homePrice: 5200000, description: 'Old money paradise' },
-    { name: 'Aspen', state: 'CO', zip: '81611', homePrice: 4800000, description: 'Ski slopes & champagne' },
+    { name: 'Beverly Hills', state: 'CA', zip: '90210', homePrice: 6500000, description: 'Where dreams have 5-car garages', imageUrl: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=400&q=80' },
+    { name: 'Atherton', state: 'CA', zip: '94027', homePrice: 7500000, description: 'Tech billionaire territory', imageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&q=80' },
+    { name: 'Palm Beach', state: 'FL', zip: '33480', homePrice: 5200000, description: 'Old money paradise', imageUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&q=80' },
+    { name: 'Aspen', state: 'CO', zip: '81611', homePrice: 4800000, description: 'Ski slopes & champagne', imageUrl: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&q=80' },
   ],
   [WealthTier.WEALTHY]: [
-    { name: 'Palo Alto', state: 'CA', zip: '94301', homePrice: 3200000, description: 'Silicon Valley\'s backyard' },
-    { name: 'Greenwich', state: 'CT', zip: '06830', homePrice: 2800000, description: 'Hedge fund haven' },
-    { name: 'Scottsdale', state: 'AZ', zip: '85254', homePrice: 1500000, description: 'Desert luxury living' },
-    { name: 'Naples', state: 'FL', zip: '34102', homePrice: 1800000, description: 'Gulf Coast elegance' },
+    { name: 'Palo Alto', state: 'CA', zip: '94301', homePrice: 3200000, description: 'Silicon Valley\'s backyard', imageUrl: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=400&q=80' },
+    { name: 'Greenwich', state: 'CT', zip: '06830', homePrice: 2800000, description: 'Hedge fund haven', imageUrl: 'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=400&q=80' },
+    { name: 'Scottsdale', state: 'AZ', zip: '85254', homePrice: 1500000, description: 'Desert luxury living', imageUrl: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=400&q=80' },
+    { name: 'Naples', state: 'FL', zip: '34102', homePrice: 1800000, description: 'Gulf Coast elegance', imageUrl: 'https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=400&q=80' },
   ],
   [WealthTier.AFFLUENT]: [
-    { name: 'Silver Lake', state: 'CA', zip: '90039', homePrice: 1400000, description: 'Hipster meets Hollywood' },
-    { name: 'Williamsburg', state: 'NY', zip: '11211', homePrice: 1100000, description: 'Brooklyn\'s creative hub' },
-    { name: 'Cherry Creek', state: 'CO', zip: '80206', homePrice: 950000, description: 'Denver\'s upscale enclave' },
-    { name: 'Buckhead', state: 'GA', zip: '30305', homePrice: 850000, description: 'Atlanta\'s ritzy district' },
+    { name: 'Silver Lake', state: 'CA', zip: '90039', homePrice: 1400000, description: 'Hipster meets Hollywood', imageUrl: 'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=400&q=80' },
+    { name: 'Williamsburg', state: 'NY', zip: '11211', homePrice: 1100000, description: 'Brooklyn\'s creative hub', imageUrl: 'https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?w=400&q=80' },
+    { name: 'Cherry Creek', state: 'CO', zip: '80206', homePrice: 950000, description: 'Denver\'s upscale enclave', imageUrl: 'https://images.unsplash.com/photo-1600566753151-384129cf4e3e?w=400&q=80' },
+    { name: 'Buckhead', state: 'GA', zip: '30305', homePrice: 850000, description: 'Atlanta\'s ritzy district', imageUrl: 'https://images.unsplash.com/photo-1600047509358-9dc75507daeb?w=400&q=80' },
   ],
   [WealthTier.COMFORTABLE]: [
-    { name: 'Austin', state: 'TX', zip: '78701', homePrice: 550000, description: 'Keep it weird & wonderful' },
-    { name: 'Raleigh', state: 'NC', zip: '27601', homePrice: 420000, description: 'Research Triangle vibes' },
-    { name: 'Orlando', state: 'FL', zip: '32801', homePrice: 380000, description: 'More than just theme parks' },
-    { name: 'Phoenix', state: 'AZ', zip: '85004', homePrice: 450000, description: 'Sun-soaked suburbia' },
+    { name: 'Austin', state: 'TX', zip: '78701', homePrice: 550000, description: 'Keep it weird & wonderful', imageUrl: 'https://images.unsplash.com/photo-1600585154363-67eb9e2e2099?w=400&q=80' },
+    { name: 'Raleigh', state: 'NC', zip: '27601', homePrice: 420000, description: 'Research Triangle vibes', imageUrl: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=400&q=80' },
+    { name: 'Orlando', state: 'FL', zip: '32801', homePrice: 380000, description: 'More than just theme parks', imageUrl: 'https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=400&q=80' },
+    { name: 'Phoenix', state: 'AZ', zip: '85004', homePrice: 450000, description: 'Sun-soaked suburbia', imageUrl: 'https://images.unsplash.com/photo-1600607688969-a5bfcd646154?w=400&q=80' },
   ],
   [WealthTier.MODEST]: [
-    { name: 'Detroit', state: 'MI', zip: '48201', homePrice: 85000, description: 'Motor City revival' },
-    { name: 'Cleveland', state: 'OH', zip: '44101', homePrice: 95000, description: 'Rust belt renaissance' },
-    { name: 'Memphis', state: 'TN', zip: '38103', homePrice: 120000, description: 'Blues, BBQ & bargains' },
-    { name: 'Buffalo', state: 'NY', zip: '14201', homePrice: 110000, description: 'Affordable & authentic' },
+    { name: 'Detroit', state: 'MI', zip: '48201', homePrice: 85000, description: 'Motor City revival', imageUrl: 'https://images.unsplash.com/photo-1600047509782-20d39509f26d?w=400&q=80' },
+    { name: 'Cleveland', state: 'OH', zip: '44101', homePrice: 95000, description: 'Rust belt renaissance', imageUrl: 'https://images.unsplash.com/photo-1600566752547-33a300de1b69?w=400&q=80' },
+    { name: 'Memphis', state: 'TN', zip: '38103', homePrice: 120000, description: 'Blues, BBQ & bargains', imageUrl: 'https://images.unsplash.com/photo-1600585154084-4e5fe7c39198?w=400&q=80' },
+    { name: 'Buffalo', state: 'NY', zip: '14201', homePrice: 110000, description: 'Affordable & authentic', imageUrl: 'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=400&q=80' },
   ],
 };
 
@@ -196,7 +197,7 @@ export function HomeScreen(): React.ReactElement {
             <Text style={[styles.headerTitle, { color: theme.colors.TEXT_PRIMARY }]}>
               Where should we{'\n'}
               <Text style={[styles.headerTitleAccent, { fontFamily: FONTS.display }]}>
-                NeighborFi
+                look
               </Text>
               {' '}next?
             </Text>
@@ -301,6 +302,14 @@ export function HomeScreen(): React.ReactElement {
                     onPress={() => handleDiscoveryPress(neighborhood)}
                     activeOpacity={0.7}
                   >
+                    <View style={[styles.discoveryImage, { backgroundColor: theme.wealthTierColors[selectedTier].background }]}>
+                      <Image
+                        source={{ uri: neighborhood.imageUrl }}
+                        style={styles.discoveryImageInner}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    
                     <View style={styles.discoveryCardContent}>
                       <Text style={[styles.discoveryName, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
                         {neighborhood.name}, {neighborhood.state}
@@ -309,7 +318,10 @@ export function HomeScreen(): React.ReactElement {
                         {neighborhood.description}
                       </Text>
                       <Text style={[styles.discoveryPrice, { color: theme.colors.PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
-                        ~${(neighborhood.homePrice / 1000000).toFixed(1)}M median home
+                        {neighborhood.homePrice >= 1000000 
+                          ? `~$${(neighborhood.homePrice / 1000000).toFixed(1)}M median home`
+                          : `~$${(neighborhood.homePrice / 1000).toFixed(0)}K median home`
+                        }
                       </Text>
                     </View>
                     <Text style={[styles.discoveryArrow, { color: theme.colors.TEXT_MUTED }]}>→</Text>
@@ -339,6 +351,10 @@ export function HomeScreen(): React.ReactElement {
                   state={item.result.neighborhoodData.state}
                   tier={item.result.neighborhoodData.wealthTier}
                   homePrice={item.result.neighborhoodData.medianHomePrice}
+                  imageUrl={ImageService.getCityImage(
+                    item.result.neighborhoodData.city,
+                    item.result.neighborhoodData.wealthTier
+                  )}
                   variant="full"
                   onPress={() => handleHistoryPress(item)}
                 />
@@ -494,7 +510,7 @@ const styles = StyleSheet.create({
   discoveryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.md,
     borderRadius: 12,
     marginBottom: SPACING.sm,
     shadowColor: '#000',
@@ -502,6 +518,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  discoveryImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginRight: SPACING.md,
+  },
+  discoveryImageInner: {
+    width: '100%',
+    height: '100%',
   },
   discoveryCardContent: {
     flex: 1,

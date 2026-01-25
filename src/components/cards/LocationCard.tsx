@@ -1,9 +1,9 @@
 /**
- * @fileoverview Luxurious location card for hot spots and saved locations.
+ * @fileoverview Luxurious location card with neighborhood images.
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../contexts';
 import { TierBadge } from '../common/TierBadge';
 import { WealthTier } from '../../types';
@@ -32,6 +32,10 @@ export function LocationCard({
   showTrending = false,
 }: LocationCardProps): React.ReactElement {
   const { theme } = useTheme();
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  const tierColors = theme.wealthTierColors[tier];
 
   if (variant === 'full') {
     return (
@@ -40,46 +44,71 @@ export function LocationCard({
         onPress={onPress}
         activeOpacity={0.8}
       >
-        <View style={styles.fullCardHeader}>
-          <View>
-            <Text style={[styles.fullCardName, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
-              {name}{state ? `, ${state}` : ''}
-            </Text>
-            <TierBadge tier={tier} size="small" />
+        <View style={styles.fullCardRow}>
+          {/* Image */}
+          <View style={[styles.fullCardImage, { backgroundColor: tierColors.background }]}>
+            {imageUrl && !imageError ? (
+              <>
+                {imageLoading && (
+                  <View style={styles.imageLoading}>
+                    <ActivityIndicator size="small" color={tierColors.primary} />
+                  </View>
+                )}
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={[styles.image, imageLoading && styles.imageHidden]}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => {
+                    setImageError(true);
+                    setImageLoading(false);
+                  }}
+                  resizeMode="cover"
+                />
+              </>
+            ) : (
+              <View style={styles.imagePlaceholder}>
+                <Text style={[styles.placeholderIcon, { color: tierColors.primary }]}>⌂</Text>
+              </View>
+            )}
           </View>
-        </View>
-        
-        <View style={styles.fullCardStats}>
-          <View style={styles.statBlock}>
-            <Text style={[styles.statLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
-              HOME VALUE
-            </Text>
-            <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
-              {formatCurrency(homePrice)}
-            </Text>
-          </View>
-          <View style={styles.statBlock}>
-            <Text style={[styles.statLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
-              NEED TO EARN
-            </Text>
-            <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
-              {formatCurrency(Math.round(homePrice / 3.5))}
-            </Text>
-          </View>
-        </View>
 
-        <TouchableOpacity 
-          style={[styles.viewButton, { borderColor: theme.colors.BORDER }]}
-          onPress={onPress}
-        >
-          <Text style={[styles.viewButtonText, { color: theme.colors.TEXT_SECONDARY, fontFamily: FONTS.bodyMedium }]}>
-            VIEW ANALYSIS
-          </Text>
-        </TouchableOpacity>
+          {/* Content */}
+          <View style={styles.fullCardContent}>
+            <View style={styles.fullCardHeader}>
+              <Text style={[styles.fullCardName, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                {name}{state ? `, ${state}` : ''}
+              </Text>
+              <TierBadge tier={tier} size="small" />
+            </View>
+            
+            <View style={styles.fullCardStats}>
+              <View style={styles.statBlock}>
+                <Text style={[styles.statLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  HOME VALUE
+                </Text>
+                <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  {formatCurrency(homePrice)}
+                </Text>
+              </View>
+              <View style={styles.statBlock}>
+                <Text style={[styles.statLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  NEED TO EARN
+                </Text>
+                <Text style={[styles.statValue, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  {formatCurrency(Math.round(homePrice / 3.5))}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Arrow */}
+          <Text style={[styles.fullCardArrow, { color: theme.colors.TEXT_MUTED }]}>›</Text>
+        </View>
       </TouchableOpacity>
     );
   }
 
+  // Compact variant
   return (
     <TouchableOpacity
       style={[styles.compactCard, { backgroundColor: theme.colors.SURFACE }]}
@@ -87,16 +116,34 @@ export function LocationCard({
       activeOpacity={0.8}
     >
       {showTrending && (
-        <View style={styles.trendingBadge}>
+        <View style={[styles.trendingBadge, { backgroundColor: tierColors.primary }]}>
           <Text style={styles.trendingText}>TRENDING</Text>
         </View>
       )}
       
-      <View style={[styles.imagePlaceholder, { backgroundColor: theme.colors.GRADIENT_END }]}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.image} />
+      <View style={[styles.compactImage, { backgroundColor: tierColors.background }]}>
+        {imageUrl && !imageError ? (
+          <>
+            {imageLoading && (
+              <View style={styles.imageLoading}>
+                <ActivityIndicator size="small" color={tierColors.primary} />
+              </View>
+            )}
+            <Image
+              source={{ uri: imageUrl }}
+              style={[styles.image, imageLoading && styles.imageHidden]}
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
+              resizeMode="cover"
+            />
+          </>
         ) : (
-          <Text style={styles.placeholderEmoji}>🏠</Text>
+          <View style={styles.imagePlaceholder}>
+            <Text style={[styles.placeholderIcon, { color: tierColors.primary }]}>⌂</Text>
+          </View>
         )}
       </View>
       
@@ -117,6 +164,7 @@ export function LocationCard({
 }
 
 const styles = StyleSheet.create({
+  // Compact styles
   compactCard: {
     width: 160,
     borderRadius: 16,
@@ -132,9 +180,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.sm,
     left: SPACING.sm,
-    backgroundColor: '#E8A0BF',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 4,
     zIndex: 1,
   },
@@ -144,18 +191,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  imagePlaceholder: {
+  compactImage: {
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
-  placeholderEmoji: {
+  imageHidden: {
+    opacity: 0,
+  },
+  imageLoading: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  placeholderIcon: {
     fontSize: 32,
+    opacity: 0.5,
   },
   compactContent: {
     padding: SPACING.md,
@@ -175,9 +237,11 @@ const styles = StyleSheet.create({
   compactPrice: {
     fontSize: 14,
   },
+
+  // Full styles
   fullCard: {
     borderRadius: 16,
-    padding: SPACING.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -185,37 +249,44 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  fullCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fullCardImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginRight: SPACING.md,
+  },
+  fullCardContent: {
+    flex: 1,
+  },
   fullCardHeader: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   fullCardName: {
-    fontSize: 18,
-    marginBottom: SPACING.sm,
+    fontSize: 16,
+    marginBottom: SPACING.xs,
   },
   fullCardStats: {
     flexDirection: 'row',
-    marginBottom: SPACING.lg,
   },
   statBlock: {
-    flex: 1,
+    marginRight: SPACING.lg,
   },
   statLabel: {
-    fontSize: 10,
+    fontSize: 9,
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 14,
   },
-  viewButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  viewButtonText: {
-    fontSize: 12,
-    letterSpacing: 0.5,
+  fullCardArrow: {
+    fontSize: 24,
+    fontWeight: '300',
   },
 });
 
