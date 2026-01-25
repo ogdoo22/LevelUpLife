@@ -52,7 +52,8 @@
           "photosPermission": "Allow Level Up Life to access your photos to read location data.",
           "cameraPermission": "Allow Level Up Life to use your camera to capture neighborhood photos."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

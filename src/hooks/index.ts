@@ -5,3 +5,4 @@
 export { useLocation } from './useLocation';
 export { useCamera } from './useCamera';
 export { useAnalysis } from './useAnalysis';
+export { useAppFonts } from './useFonts';

@@ -1,10 +1,9 @@
 /**
- * @fileoverview Theme context for managing app-wide theming.
+ * @fileoverview Theme context - locked to Rose Gold theme.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Theme, ThemeName, THEMES, DEFAULT_THEME } from '../constants/themes';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { Theme, ROSE_GOLD_THEME } from '../constants/themes';
 
 // ============================================================================
 // TYPES
@@ -12,10 +11,6 @@ import { Theme, ThemeName, THEMES, DEFAULT_THEME } from '../constants/themes';
 
 interface ThemeContextValue {
   theme: Theme;
-  themeName: ThemeName;
-  setTheme: (name: ThemeName) => void;
-  toggleTheme: () => void;
-  isLoading: boolean;
 }
 
 interface ThemeProviderProps {
@@ -28,54 +23,13 @@ interface ThemeProviderProps {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const THEME_STORAGE_KEY = '@leveluplife_theme';
-
 // ============================================================================
 // PROVIDER
 // ============================================================================
 
 export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElement {
-  const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load saved theme on mount
-  useEffect(() => {
-    loadSavedTheme();
-  }, []);
-
-  const loadSavedTheme = async (): Promise<void> => {
-    try {
-      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme && (savedTheme === 'roseGold' || savedTheme === 'midnight')) {
-        setThemeName(savedTheme);
-      }
-    } catch (error) {
-      console.error('Failed to load theme:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const setTheme = useCallback(async (name: ThemeName): Promise<void> => {
-    try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, name);
-      setThemeName(name);
-    } catch (error) {
-      console.error('Failed to save theme:', error);
-    }
-  }, []);
-
-  const toggleTheme = useCallback((): void => {
-    const newTheme = themeName === 'roseGold' ? 'midnight' : 'roseGold';
-    setTheme(newTheme);
-  }, [themeName, setTheme]);
-
   const value: ThemeContextValue = {
-    theme: THEMES[themeName],
-    themeName,
-    setTheme,
-    toggleTheme,
-    isLoading,
+    theme: ROSE_GOLD_THEME,
   };
 
   return (

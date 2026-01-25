@@ -1,6 +1,5 @@
 /**
- * @fileoverview Onboarding screen with intro slides.
- * Shows first-time users what the app does and requests permissions.
+ * @fileoverview Elegant onboarding screen with luxurious typography.
  */
 
 import React, { useState, useRef } from 'react';
@@ -16,9 +15,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { SafeContainer, PrimaryButton, ThemeToggle } from '../components';
+import { SafeContainer, PrimaryButton } from '../components';
 import { useTheme } from '../contexts';
-import { TYPOGRAPHY, LAYOUT } from '../constants';
+import { FONTS, SPACING } from '../constants/themes';
+import { LAYOUT } from '../constants';
 
 type OnboardingNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -30,37 +30,37 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Slide {
   id: string;
-  emoji: string;
+  preTitle?: string;
   title: string;
+  titleAccent?: string;
+  postTitle?: string;
   description: string;
-  showThemeToggle?: boolean;
 }
 
 const SLIDES: Slide[] = [
   {
     id: '1',
-    emoji: '🏠💰',
-    title: 'Welcome to Level Up Life',
-    description: 'Ever wondered what it takes to live in that fancy neighborhood? We\'ll tell you - with a side of humor.',
+    preTitle: 'Welcome to',
+    titleAccent: 'Level Up Life',
+    description: 'Discover what it truly takes to live in the neighborhoods you dream about.',
   },
   {
     id: '2',
-    emoji: '📍📸',
-    title: 'Share or Snap',
-    description: 'Use your current location or take a photo of any neighborhood. We\'ll analyze it instantly.',
+    preTitle: 'Explore',
+    titleAccent: 'Any Neighborhood',
+    description: 'Search by ZIP code, use your current location, or browse our curated collection.',
   },
   {
     id: '3',
-    emoji: '🎨',
-    title: 'Pick Your Vibe',
-    description: 'Choose the aesthetic that speaks to you.',
-    showThemeToggle: true,
+    preTitle: 'Uncover',
+    titleAccent: 'The Details',
+    description: 'Median home prices, income requirements, and insights delivered with personality.',
   },
   {
     id: '4',
-    emoji: '🚀💼',
-    title: 'Level Up Your Life',
-    description: 'Get career suggestions and a personalized plan to reach your housing goals. Dreams have price tags!',
+    preTitle: 'Chart Your',
+    titleAccent: 'Path Forward',
+    description: 'Personalized career suggestions and a roadmap to reach your aspirations.',
   },
 ];
 
@@ -108,18 +108,32 @@ export function OnboardingScreen(): React.ReactElement {
   const renderSlide = ({ item }: { item: Slide }): React.ReactElement => (
     <View style={styles.slideContainer}>
       <View style={styles.slideContent}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
-        <Text style={[styles.title, { color: theme.colors.TEXT_LIGHT }]}>
-          {item.title}
+        {/* Decorative line */}
+        <View style={[styles.decorativeLine, { backgroundColor: theme.colors.TEXT_LIGHT }]} />
+        
+        {/* Pre-title */}
+        {item.preTitle && (
+          <Text style={[styles.preTitle, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.body }]}>
+            {item.preTitle}
+          </Text>
+        )}
+        
+        {/* Main title with accent */}
+        <Text style={[styles.titleAccent, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.display }]}>
+          {item.titleAccent}
         </Text>
-        <Text style={[styles.description, { color: theme.colors.TEXT_LIGHT }]}>
+        
+        {/* Post-title */}
+        {item.postTitle && (
+          <Text style={[styles.postTitle, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.body }]}>
+            {item.postTitle}
+          </Text>
+        )}
+        
+        {/* Description */}
+        <Text style={[styles.description, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.body }]}>
           {item.description}
         </Text>
-        {item.showThemeToggle && (
-          <View style={styles.themeToggleContainer}>
-            <ThemeToggle size="large" />
-          </View>
-        )}
       </View>
     </View>
   );
@@ -143,7 +157,7 @@ export function OnboardingScreen(): React.ReactElement {
         {/* Skip button */}
         {!isLastSlide && (
           <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-            <Text style={[styles.skipText, { color: theme.colors.TEXT_LIGHT }]}>
+            <Text style={[styles.skipText, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.bodyMedium }]}>
               Skip
             </Text>
           </TouchableOpacity>
@@ -179,18 +193,20 @@ export function OnboardingScreen(): React.ReactElement {
 
         {/* Next/Get Started button */}
         <View style={styles.buttonContainer}>
-          <PrimaryButton
-            label={isLastSlide ? "Let's Go! 🚀" : 'Next'}
+          <TouchableOpacity
+            style={[styles.nextButton, { borderColor: theme.colors.TEXT_LIGHT }]}
             onPress={handleNext}
-            variant="secondary"
-            size="large"
-          />
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.nextButtonText, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.bodySemiBold }]}>
+              {isLastSlide ? 'Begin' : 'Continue'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Privacy note on last slide */}
         {isLastSlide && (
-          <Text style={[styles.privacyNote, { color: theme.colors.TEXT_LIGHT }]}>
-            We'll ask for location access to analyze neighborhoods.{'\n'}
+          <Text style={[styles.privacyNote, { color: theme.colors.TEXT_LIGHT, fontFamily: FONTS.body }]}>
             Your data stays on your device.
           </Text>
         )}
@@ -210,13 +226,14 @@ const styles = StyleSheet.create({
   skipButton: {
     position: 'absolute',
     top: 16,
-    right: 20,
+    right: 24,
     zIndex: 10,
     padding: 8,
   },
   skipText: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    opacity: 0.8,
+    fontSize: 14,
+    opacity: 0.7,
+    letterSpacing: 0.5,
   },
   slideContainer: {
     width: SCREEN_WIDTH,
@@ -227,59 +244,80 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 48,
   },
-  emoji: {
-    fontSize: 72,
-    marginBottom: 24,
-    textAlign: 'center',
+  decorativeLine: {
+    width: 40,
+    height: 1,
+    opacity: 0.4,
+    marginBottom: SPACING['2xl'],
   },
-  title: {
-    fontSize: TYPOGRAPHY.TITLE_MEDIUM,
-    fontWeight: '700',
+  preTitle: {
+    fontSize: 16,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    opacity: 0.8,
+    marginBottom: SPACING.sm,
+  },
+  titleAccent: {
+    fontSize: 42,
     textAlign: 'center',
-    marginBottom: 16,
-    width: '100%',
+    marginBottom: SPACING['2xl'],
+    lineHeight: 52,
+  },
+  postTitle: {
+    fontSize: 16,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    opacity: 0.8,
+    marginTop: -SPACING.lg,
+    marginBottom: SPACING['2xl'],
   },
   description: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 28,
-    opacity: 0.9,
-    width: '100%',
-  },
-  themeToggleContainer: {
-    marginTop: 32,
-    alignItems: 'center',
+    lineHeight: 26,
+    opacity: 0.85,
+    maxWidth: 280,
   },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: SPACING['2xl'],
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     opacity: 0.3,
     marginHorizontal: 6,
   },
   dotActive: {
     opacity: 1,
-    width: 24,
+    width: 20,
   },
   buttonContainer: {
-    paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
-    marginBottom: 16,
+    paddingHorizontal: 48,
+    marginBottom: SPACING.lg,
+  },
+  nextButton: {
+    borderWidth: 1,
+    borderRadius: 30,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  nextButtonText: {
+    fontSize: 15,
+    letterSpacing: 1,
   },
   privacyNote: {
-    fontSize: TYPOGRAPHY.CAPTION,
+    fontSize: 12,
     textAlign: 'center',
-    opacity: 0.7,
-    paddingHorizontal: 40,
-    marginBottom: 32,
-    lineHeight: 18,
+    opacity: 0.5,
+    paddingHorizontal: 48,
+    marginBottom: SPACING['2xl'],
+    letterSpacing: 0.3,
   },
 });
 

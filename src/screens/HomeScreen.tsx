@@ -1,5 +1,5 @@
 /**
- * @fileoverview Home screen - main entry point for the app.
+ * @fileoverview Luxurious home screen with tier discovery feature.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -8,61 +8,126 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Platform,
   TextInput,
   TouchableOpacity,
+  FlatList,
+  Animated,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, WealthTier } from '../types';
 import {
   SafeContainer,
-  PrimaryButton,
+  GradientBackground,
   LoadingOverlay,
   ErrorDisplay,
-  NoLocationModal,
-  ThemeToggle,
+  LocationCard,
 } from '../components';
-import { useLocation, useCamera, useAnalysis } from '../hooks';
-import { HistoryService } from '../services';
+import { useLocation, useAnalysis } from '../hooks';
+import { HistoryService, HistoryItem } from '../services';
 import { useTheme } from '../contexts';
-import { TYPOGRAPHY, LAYOUT, FUN_LOADING_MESSAGES } from '../constants';
+import { FONTS, SPACING } from '../constants/themes';
+import { FUN_LOADING_MESSAGES } from '../constants';
 import { selectRandom, validateZipCode } from '../utils';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-/**
- * Home screen component.
- */
+// ============================================================================
+// DISCOVERY DATA - Neighborhoods by Tier
+// ============================================================================
+
+interface DiscoveryNeighborhood {
+  name: string;
+  state: string;
+  zip: string;
+  homePrice: number;
+  description: string;
+}
+
+const DISCOVERY_DATA: Record<WealthTier, DiscoveryNeighborhood[]> = {
+  [WealthTier.ULTRA_WEALTHY]: [
+    { name: 'Beverly Hills', state: 'CA', zip: '90210', homePrice: 6500000, description: 'Where dreams have 5-car garages' },
+    { name: 'Atherton', state: 'CA', zip: '94027', homePrice: 7500000, description: 'Tech billionaire territory' },
+    { name: 'Palm Beach', state: 'FL', zip: '33480', homePrice: 5200000, description: 'Old money paradise' },
+    { name: 'Aspen', state: 'CO', zip: '81611', homePrice: 4800000, description: 'Ski slopes & champagne' },
+  ],
+  [WealthTier.WEALTHY]: [
+    { name: 'Palo Alto', state: 'CA', zip: '94301', homePrice: 3200000, description: 'Silicon Valley\'s backyard' },
+    { name: 'Greenwich', state: 'CT', zip: '06830', homePrice: 2800000, description: 'Hedge fund haven' },
+    { name: 'Scottsdale', state: 'AZ', zip: '85254', homePrice: 1500000, description: 'Desert luxury living' },
+    { name: 'Naples', state: 'FL', zip: '34102', homePrice: 1800000, description: 'Gulf Coast elegance' },
+  ],
+  [WealthTier.AFFLUENT]: [
+    { name: 'Silver Lake', state: 'CA', zip: '90039', homePrice: 1400000, description: 'Hipster meets Hollywood' },
+    { name: 'Williamsburg', state: 'NY', zip: '11211', homePrice: 1100000, description: 'Brooklyn\'s creative hub' },
+    { name: 'Cherry Creek', state: 'CO', zip: '80206', homePrice: 950000, description: 'Denver\'s upscale enclave' },
+    { name: 'Buckhead', state: 'GA', zip: '30305', homePrice: 850000, description: 'Atlanta\'s ritzy district' },
+  ],
+  [WealthTier.COMFORTABLE]: [
+    { name: 'Austin', state: 'TX', zip: '78701', homePrice: 550000, description: 'Keep it weird & wonderful' },
+    { name: 'Raleigh', state: 'NC', zip: '27601', homePrice: 420000, description: 'Research Triangle vibes' },
+    { name: 'Orlando', state: 'FL', zip: '32801', homePrice: 380000, description: 'More than just theme parks' },
+    { name: 'Phoenix', state: 'AZ', zip: '85004', homePrice: 450000, description: 'Sun-soaked suburbia' },
+  ],
+  [WealthTier.MODEST]: [
+    { name: 'Detroit', state: 'MI', zip: '48201', homePrice: 85000, description: 'Motor City revival' },
+    { name: 'Cleveland', state: 'OH', zip: '44101', homePrice: 95000, description: 'Rust belt renaissance' },
+    { name: 'Memphis', state: 'TN', zip: '38103', homePrice: 120000, description: 'Blues, BBQ & bargains' },
+    { name: 'Buffalo', state: 'NY', zip: '14201', homePrice: 110000, description: 'Affordable & authentic' },
+  ],
+};
+
+const TIER_FILTERS = [
+  { tier: WealthTier.ULTRA_WEALTHY, label: 'Ultra Wealthy', emoji: '👑' },
+  { tier: WealthTier.WEALTHY, label: 'Wealthy', emoji: '💎' },
+  { tier: WealthTier.AFFLUENT, label: 'Upper Middle', emoji: '✨' },
+  { tier: WealthTier.COMFORTABLE, label: 'Middle Class', emoji: '🏡' },
+  { tier: WealthTier.MODEST, label: 'Working Class', emoji: '💪' },
+];
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 export function HomeScreen(): React.ReactElement {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const { theme } = useTheme();
   const { state: locationState, getCurrentLocation, reset: resetLocation } = useLocation();
-  const { state: cameraState, takePhoto, reset: resetCamera } = useCamera();
   const { state: analysisState, analyzeLocation, analyzeZipCode, reset: resetAnalysis } = useAnalysis();
 
-  const [showNoLocationModal, setShowNoLocationModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loadingMessage, setLoadingMessage] = useState(FUN_LOADING_MESSAGES[0]);
-  const [zipCodeInput, setZipCodeInput] = useState('');
-  const [zipError, setZipError] = useState('');
-  const [historyCount, setHistoryCount] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<HistoryItem[]>([]);
+  const [selectedTier, setSelectedTier] = useState<WealthTier | null>(null);
+  const [discoveryAnim] = useState(new Animated.Value(0));
 
-  // Load history count when screen focuses
+  // Load recent searches
   useFocusEffect(
     useCallback(() => {
-      HistoryService.getHistoryCount().then(setHistoryCount);
+      HistoryService.getHistory().then((items) => {
+        setRecentSearches(items.slice(0, 3));
+      });
     }, [])
   );
 
+  // Animate discovery section
+  useEffect(() => {
+    Animated.timing(discoveryAnim, {
+      toValue: selectedTier ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [selectedTier]);
+
   // Rotate loading messages
   useEffect(() => {
-    if (locationState.isLoading || cameraState.isLoading || analysisState.isLoading) {
+    if (locationState.isLoading || analysisState.isLoading) {
       const interval = setInterval(() => {
         setLoadingMessage(selectRandom(FUN_LOADING_MESSAGES) || FUN_LOADING_MESSAGES[0]);
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [locationState.isLoading, cameraState.isLoading, analysisState.isLoading]);
+  }, [locationState.isLoading, analysisState.isLoading]);
 
   // Handle location obtained -> analyze
   useEffect(() => {
@@ -71,228 +136,240 @@ export function HomeScreen(): React.ReactElement {
     }
   }, [locationState.data]);
 
-  // Handle photo captured -> check for location
-  useEffect(() => {
-    if (cameraState.data) {
-      if (cameraState.data.hasLocationData && cameraState.data.location) {
-        analyzeLocation(cameraState.data.location);
-      } else {
-        setShowNoLocationModal(true);
-      }
-    }
-  }, [cameraState.data]);
-
-  // Handle analysis complete -> save to history and navigate
+  // Handle analysis complete
   useEffect(() => {
     if (analysisState.data) {
-      // Save to history
-      HistoryService.saveAnalysis(analysisState.data).then(() => {
-        HistoryService.getHistoryCount().then(setHistoryCount);
-      });
-      
+      HistoryService.saveAnalysis(analysisState.data);
       resetLocation();
-      resetCamera();
       navigation.navigate('Results', { result: analysisState.data });
     }
   }, [analysisState.data]);
 
-  const handleUseLocation = useCallback((): void => {
+  const handleSearch = useCallback(() => {
+    if (validateZipCode(searchQuery)) {
+      resetAnalysis();
+      analyzeZipCode(searchQuery.trim());
+    }
+  }, [searchQuery, analyzeZipCode, resetAnalysis]);
+
+  const handleUseLocation = useCallback(() => {
     resetLocation();
-    resetCamera();
     resetAnalysis();
     getCurrentLocation();
-  }, [getCurrentLocation, resetLocation, resetCamera, resetAnalysis]);
+  }, [getCurrentLocation, resetLocation, resetAnalysis]);
 
-  const handleTakePhoto = useCallback((): void => {
-    resetLocation();
-    resetCamera();
+  const handleDiscoveryPress = useCallback((neighborhood: DiscoveryNeighborhood) => {
     resetAnalysis();
-    takePhoto();
-  }, [takePhoto, resetLocation, resetCamera, resetAnalysis]);
+    analyzeZipCode(neighborhood.zip, neighborhood.name);
+  }, [analyzeZipCode, resetAnalysis]);
 
-  const handleZipCodeSubmit = useCallback((): void => {
-    setZipError('');
-    
-    if (!validateZipCode(zipCodeInput)) {
-      setZipError('Please enter a valid 5-digit ZIP code');
-      return;
-    }
-    
-    resetLocation();
-    resetCamera();
-    resetAnalysis();
-    analyzeZipCode(zipCodeInput.trim());
-  }, [zipCodeInput, analyzeZipCode, resetLocation, resetCamera, resetAnalysis]);
-
-  const handleViewHistory = useCallback((): void => {
-    navigation.navigate('History');
+  const handleHistoryPress = useCallback((item: HistoryItem) => {
+    navigation.navigate('Results', { result: item.result });
   }, [navigation]);
 
-  const handleDismissError = useCallback((): void => {
+  const handleTierSelect = useCallback((tier: WealthTier) => {
+    setSelectedTier(selectedTier === tier ? null : tier);
+  }, [selectedTier]);
+
+  const handleDismissError = useCallback(() => {
     resetLocation();
-    resetCamera();
     resetAnalysis();
-  }, [resetLocation, resetCamera, resetAnalysis]);
+  }, [resetLocation, resetAnalysis]);
 
-  const handleModalUseLocation = useCallback((): void => {
-    setShowNoLocationModal(false);
-    resetCamera();
-    getCurrentLocation();
-  }, [getCurrentLocation, resetCamera]);
+  const isLoading = locationState.isLoading || analysisState.isLoading;
+  const currentError = analysisState.error || locationState.error;
 
-  const handleModalTryAgain = useCallback((): void => {
-    setShowNoLocationModal(false);
-    resetCamera();
-    takePhoto();
-  }, [takePhoto, resetCamera]);
-
-  const handleModalDismiss = useCallback((): void => {
-    setShowNoLocationModal(false);
-    resetCamera();
-  }, [resetCamera]);
-
-  const isLoading = locationState.isLoading || cameraState.isLoading || analysisState.isLoading;
-  const currentError = analysisState.error || locationState.error || cameraState.error;
+  const selectedTierData = selectedTier ? TIER_FILTERS.find(f => f.tier === selectedTier) : null;
+  const discoveryNeighborhoods = selectedTier ? DISCOVERY_DATA[selectedTier] : [];
 
   return (
     <SafeContainer backgroundColor={theme.colors.BACKGROUND}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerEmoji}>🏠💰</Text>
-          <Text style={[styles.title, { color: theme.colors.TEXT_PRIMARY }]}>
-            Level Up Life
-          </Text>
-          <Text style={[styles.subtitle, { color: theme.colors.TEXT_SECONDARY }]}>
-            See what it takes to live anywhere
-          </Text>
-        </View>
-
-        {/* Theme Toggle */}
-        <View style={styles.themeSection}>
-          <ThemeToggle showLabels={false} size="small" />
-        </View>
-
-        {/* History Button */}
-        {historyCount > 0 && (
-          <TouchableOpacity 
-            style={[styles.historyButton, { backgroundColor: theme.colors.SURFACE }]}
-            onPress={handleViewHistory}
-          >
-            <Text style={[styles.historyButtonText, { color: theme.colors.TEXT_PRIMARY }]}>
-              📜 View History ({historyCount})
+      <GradientBackground intensity="medium">
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={[styles.headerTitle, { color: theme.colors.TEXT_PRIMARY }]}>
+              Where should we{'\n'}
+              <Text style={[styles.headerTitleAccent, { fontFamily: FONTS.display }]}>
+                Level Up
+              </Text>
+              {' '}next?
             </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Description */}
-        <View style={[styles.descriptionCard, { backgroundColor: theme.colors.SURFACE }]}>
-          <Text style={[styles.descriptionText, { color: theme.colors.TEXT_PRIMARY }]}>
-            Point us at any neighborhood and we'll tell you:
-          </Text>
-          <View style={styles.bulletPoints}>
-            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
-              💵 How much homes cost there
-            </Text>
-            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
-              📊 What income you'd need
-            </Text>
-            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
-              😂 A fun roast of the area
-            </Text>
-            <Text style={[styles.bulletPoint, { color: theme.colors.TEXT_SECONDARY }]}>
-              🚀 How to level up to afford it
+            <Text style={[styles.headerSubtitle, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+              DISCOVER NEIGHBORHOODS BY VIBE
             </Text>
           </View>
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          <PrimaryButton
-            label="📍 Use My Location"
-            onPress={handleUseLocation}
-            disabled={isLoading}
-            size="large"
-          />
+          {/* Search Bar */}
+          <View style={[styles.searchContainer, { backgroundColor: theme.colors.SURFACE }]}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={[styles.searchInput, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.body }]}
+              placeholder="Enter ZIP or neighborhood..."
+              placeholderTextColor={theme.colors.TEXT_MUTED}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              keyboardType="default"
+              returnKeyType="search"
+              onSubmitEditing={handleSearch}
+            />
+            <TouchableOpacity
+              style={[styles.searchButton, { backgroundColor: theme.colors.ACCENT }]}
+              onPress={searchQuery ? handleSearch : handleUseLocation}
+            >
+              <Text style={styles.searchButtonIcon}>
+                {searchQuery ? '→' : '📍'}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* Camera option - mobile only */}
-          {Platform.OS !== 'web' && (
-            <>
-              <View style={styles.dividerContainer}>
-                <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
-                <Text style={[styles.dividerText, { color: theme.colors.TEXT_MUTED }]}>or</Text>
-                <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
+          {/* Tier Discovery */}
+          <View style={styles.tierSection}>
+            <Text style={[styles.sectionLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+              EXPLORE BY LIFESTYLE
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.tierFilters}
+            >
+              {TIER_FILTERS.map((filter) => {
+                const isSelected = selectedTier === filter.tier;
+                const tierColors = theme.wealthTierColors[filter.tier];
+                
+                return (
+                  <TouchableOpacity
+                    key={filter.tier}
+                    style={[
+                      styles.tierPill,
+                      {
+                        backgroundColor: isSelected ? tierColors.primary : theme.colors.SURFACE,
+                        borderColor: tierColors.primary,
+                      },
+                    ]}
+                    onPress={() => handleTierSelect(filter.tier)}
+                  >
+                    <Text style={styles.tierEmoji}>{filter.emoji}</Text>
+                    <Text
+                      style={[
+                        styles.tierPillText,
+                        {
+                          color: isSelected ? '#FFFFFF' : theme.colors.TEXT_PRIMARY,
+                          fontFamily: FONTS.bodyMedium,
+                        },
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Discovery Results */}
+            {selectedTier && (
+              <Animated.View
+                style={[
+                  styles.discoverySection,
+                  {
+                    opacity: discoveryAnim,
+                    maxHeight: discoveryAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 600],
+                    }),
+                  },
+                ]}
+              >
+                <View style={styles.discoveryHeader}>
+                  <Text style={[styles.discoveryTitle, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                    {selectedTierData?.emoji} {selectedTierData?.label} Neighborhoods
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedTier(null)}>
+                    <Text style={[styles.closeButton, { color: theme.colors.TEXT_MUTED }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {discoveryNeighborhoods.map((neighborhood) => (
+                  <TouchableOpacity
+                    key={neighborhood.zip}
+                    style={[styles.discoveryCard, { backgroundColor: theme.colors.SURFACE }]}
+                    onPress={() => handleDiscoveryPress(neighborhood)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.discoveryCardContent}>
+                      <Text style={[styles.discoveryName, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                        {neighborhood.name}, {neighborhood.state}
+                      </Text>
+                      <Text style={[styles.discoveryDescription, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                        {neighborhood.description}
+                      </Text>
+                      <Text style={[styles.discoveryPrice, { color: theme.colors.PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                        ~${(neighborhood.homePrice / 1000000).toFixed(1)}M median home
+                      </Text>
+                    </View>
+                    <Text style={[styles.discoveryArrow, { color: theme.colors.TEXT_MUTED }]}>→</Text>
+                  </TouchableOpacity>
+                ))}
+              </Animated.View>
+            )}
+          </View>
+
+          {/* Recent Searches */}
+          {recentSearches.length > 0 && !selectedTier && (
+            <View style={styles.recentSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  RECENT SEARCHES
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('History')}>
+                  <Text style={[styles.viewAllText, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                    VIEW ALL
+                  </Text>
+                </TouchableOpacity>
               </View>
-
-              <PrimaryButton
-                label="📸 Take a Photo"
-                onPress={handleTakePhoto}
-                variant="secondary"
-                disabled={isLoading}
-                size="large"
-              />
-            </>
+              {recentSearches.map((item) => (
+                <LocationCard
+                  key={item.id}
+                  name={item.result.neighborhoodData.city}
+                  state={item.result.neighborhoodData.state}
+                  tier={item.result.neighborhoodData.wealthTier}
+                  homePrice={item.result.neighborhoodData.medianHomePrice}
+                  variant="full"
+                  onPress={() => handleHistoryPress(item)}
+                />
+              ))}
+            </View>
           )}
 
-          {/* ZIP Code input */}
-          <View style={styles.dividerContainer}>
-            <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
-            <Text style={[styles.dividerText, { color: theme.colors.TEXT_MUTED }]}>or</Text>
-            <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
-          </View>
+          {/* Use Location CTA */}
+          {!selectedTier && (
+            <TouchableOpacity
+              style={[styles.locationCTA, { backgroundColor: theme.colors.SURFACE }]}
+              onPress={handleUseLocation}
+            >
+              <Text style={styles.locationCTAIcon}>📍</Text>
+              <View style={styles.locationCTAContent}>
+                <Text style={[styles.locationCTATitle, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.bodySemiBold }]}>
+                  Use My Current Location
+                </Text>
+                <Text style={[styles.locationCTASubtitle, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+                  See what it takes to live where you are
+                </Text>
+              </View>
+              <Text style={[styles.locationCTAArrow, { color: theme.colors.TEXT_MUTED }]}>→</Text>
+            </TouchableOpacity>
+          )}
 
-          <View style={styles.zipContainer}>
-            <TextInput
-              style={[
-                styles.zipInput,
-                {
-                  backgroundColor: theme.colors.SURFACE,
-                  color: theme.colors.TEXT_PRIMARY,
-                  borderColor: zipError ? theme.colors.ERROR : theme.colors.BORDER,
-                },
-              ]}
-              placeholder="Enter ZIP Code"
-              placeholderTextColor={theme.colors.TEXT_MUTED}
-              value={zipCodeInput}
-              onChangeText={(text) => {
-                setZipCodeInput(text);
-                setZipError('');
-              }}
-              keyboardType="number-pad"
-              maxLength={5}
-              returnKeyType="search"
-              onSubmitEditing={handleZipCodeSubmit}
-            />
-            <PrimaryButton
-              label="🔍"
-              onPress={handleZipCodeSubmit}
-              disabled={isLoading || zipCodeInput.length < 5}
-              size="medium"
-              fullWidth={false}
-            />
-          </View>
-          {zipError ? (
-            <Text style={[styles.zipError, { color: theme.colors.ERROR }]}>
-              {zipError}
-            </Text>
-          ) : null}
-        </View>
+        </ScrollView>
+      </GradientBackground>
 
-        {/* Privacy Note */}
-        <Text style={[styles.privacyNote, { color: theme.colors.TEXT_MUTED }]}>
-          Your location data stays on your device.{'\n'}
-          We don't track or store where you go.
-        </Text>
-      </ScrollView>
-
-      {/* Loading Overlay */}
       <LoadingOverlay visible={isLoading} message={loadingMessage} />
 
-      {/* Error Display */}
       {currentError && !isLoading && (
         <ErrorDisplay
           error={currentError}
@@ -300,123 +377,197 @@ export function HomeScreen(): React.ReactElement {
           onDismiss={handleDismissError}
         />
       )}
-
-      {/* No Location Modal - mobile only */}
-      {Platform.OS !== 'web' && (
-        <NoLocationModal
-          visible={showNoLocationModal}
-          onUseCurrentLocation={handleModalUseLocation}
-          onTryAgain={handleModalTryAgain}
-          onDismiss={handleModalDismiss}
-        />
-      )}
     </SafeContainer>
   );
 }
+
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
-    paddingTop: 40,
-    paddingBottom: 40,
-    maxWidth: 600,
-    alignSelf: 'center',
-    width: '100%',
+    paddingTop: 60,
+    paddingBottom: 100,
   },
   header: {
+    paddingHorizontal: SPACING.xl,
+    marginBottom: SPACING['2xl'],
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 40,
+    marginBottom: SPACING.sm,
+  },
+  headerTitleAccent: {
+    fontStyle: 'italic',
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    letterSpacing: 2,
+    marginTop: SPACING.sm,
+  },
+  searchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginHorizontal: SPACING.xl,
+    borderRadius: 16,
+    paddingLeft: SPACING.lg,
+    paddingRight: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  headerEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
+  searchIcon: {
+    fontSize: 16,
+    marginRight: SPACING.sm,
   },
-  title: {
-    fontSize: TYPOGRAPHY.TITLE_LARGE,
-    fontWeight: '700',
-    marginBottom: 8,
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: SPACING.md,
   },
-  subtitle: {
-    fontSize: TYPOGRAPHY.BODY_LARGE,
-    textAlign: 'center',
-  },
-  themeSection: {
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  historyButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  searchButtonIcon: {
+    fontSize: 18,
+    color: '#FFFFFF',
+  },
+  tierSection: {
+    marginTop: SPACING['2xl'],
+    paddingLeft: SPACING.xl,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: SPACING.md,
+  },
+  tierFilters: {
+    paddingRight: SPACING.xl,
+  },
+  tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
     borderRadius: 20,
-    marginBottom: 16,
+    marginRight: SPACING.sm,
+    borderWidth: 1,
+  },
+  tierEmoji: {
+    fontSize: 14,
+    marginRight: SPACING.sm,
+  },
+  tierPillText: {
+    fontSize: 13,
+  },
+  discoverySection: {
+    marginTop: SPACING.lg,
+    marginRight: SPACING.xl,
+    overflow: 'hidden',
+  },
+  discoveryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  discoveryTitle: {
+    fontSize: 16,
+  },
+  closeButton: {
+    fontSize: 18,
+    padding: SPACING.sm,
+  },
+  discoveryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderRadius: 12,
+    marginBottom: SPACING.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
-  historyButtonText: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
-    fontWeight: '600',
+  discoveryCardContent: {
+    flex: 1,
   },
-  descriptionCard: {
-    borderRadius: LAYOUT.CARD_BORDER_RADIUS,
-    padding: LAYOUT.PADDING_HORIZONTAL,
-    marginBottom: 32,
+  discoveryName: {
+    fontSize: 15,
+    marginBottom: 4,
   },
-  descriptionText: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    marginBottom: 16,
-    textAlign: 'center',
+  discoveryDescription: {
+    fontSize: 12,
+    marginBottom: 6,
   },
-  bulletPoints: {
-    gap: 12,
+  discoveryPrice: {
+    fontSize: 13,
   },
-  bulletPoint: {
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-    lineHeight: 24,
+  discoveryArrow: {
+    fontSize: 18,
+    marginLeft: SPACING.md,
   },
-  actionsContainer: {
-    gap: 16,
-    marginBottom: 32,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
-  dividerContainer: {
+  sectionTitle: {
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  viewAllText: {
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  recentSection: {
+    marginTop: SPACING['2xl'],
+    paddingHorizontal: SPACING.xl,
+  },
+  locationCTA: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    marginHorizontal: SPACING.xl,
+    marginTop: SPACING['2xl'],
+    padding: SPACING.lg,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  dividerLine: {
+  locationCTAIcon: {
+    fontSize: 24,
+    marginRight: SPACING.md,
+  },
+  locationCTAContent: {
     flex: 1,
-    height: 1,
   },
-  dividerText: {
-    fontSize: TYPOGRAPHY.BODY_SMALL,
+  locationCTATitle: {
+    fontSize: 15,
+    marginBottom: 2,
   },
-  zipContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
+  locationCTASubtitle: {
+    fontSize: 12,
   },
-  zipInput: {
-    flex: 1,
-    height: 50,
-    borderRadius: LAYOUT.BUTTON_BORDER_RADIUS,
-    borderWidth: 2,
-    paddingHorizontal: 16,
-    fontSize: TYPOGRAPHY.BODY_MEDIUM,
-  },
-  zipError: {
-    fontSize: TYPOGRAPHY.CAPTION,
-    marginTop: -8,
-  },
-  privacyNote: {
-    fontSize: TYPOGRAPHY.CAPTION,
-    textAlign: 'center',
-    lineHeight: 20,
+  locationCTAArrow: {
+    fontSize: 20,
   },
 });
 

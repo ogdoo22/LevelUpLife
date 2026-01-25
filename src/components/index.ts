@@ -9,6 +9,10 @@ export { CameraButton } from './buttons/CameraButton';
 // Cards
 export { ResultCard } from './cards/ResultCard';
 export { CareerCard } from './cards/CareerCard';
+export { LocationCard } from './cards/LocationCard';
+
+// Common
+export { TierBadge } from './common/TierBadge';
 
 // Feedback
 export { LoadingOverlay } from './feedback/LoadingOverlay';
@@ -18,6 +22,4 @@ export { NoLocationModal } from './feedback/NoLocationModal';
 
 // Layout
 export { SafeContainer } from './layout/SafeContainer';
-
-// Settings
-export { ThemeToggle } from './settings/ThemeToggle';
+export { GradientBackground } from './layout/GradientBackground';
