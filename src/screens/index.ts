@@ -5,3 +5,4 @@
 export { HomeScreen } from './HomeScreen';
 export { ResultsScreen } from './ResultsScreen';
 export { OnboardingScreen } from './OnboardingScreen';
+export { HistoryScreen } from './HistoryScreen';

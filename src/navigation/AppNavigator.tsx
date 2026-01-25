@@ -6,7 +6,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { HomeScreen, ResultsScreen, OnboardingScreen } from '../screens';
+import { HomeScreen, ResultsScreen, OnboardingScreen, HistoryScreen } from '../screens';
 import { COLORS } from '../constants';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -35,6 +35,13 @@ export function AppNavigator(): React.ReactElement {
           component={ResultsScreen}
           options={{
             animation: 'slide_from_bottom',
+          }}
+        />
+        <Stack.Screen 
+          name="History" 
+          component={HistoryScreen}
+          options={{
+            animation: 'slide_from_right',
           }}
         />
       </Stack.Navigator>

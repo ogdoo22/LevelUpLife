@@ -8,9 +8,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Platform,
+  TextInput,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import {
@@ -22,9 +24,10 @@ import {
   ThemeToggle,
 } from '../components';
 import { useLocation, useCamera, useAnalysis } from '../hooks';
+import { HistoryService } from '../services';
 import { useTheme } from '../contexts';
 import { TYPOGRAPHY, LAYOUT, FUN_LOADING_MESSAGES } from '../constants';
-import { selectRandom } from '../utils';
+import { selectRandom, validateZipCode } from '../utils';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -40,6 +43,16 @@ export function HomeScreen(): React.ReactElement {
 
   const [showNoLocationModal, setShowNoLocationModal] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState(FUN_LOADING_MESSAGES[0]);
+  const [zipCodeInput, setZipCodeInput] = useState('');
+  const [zipError, setZipError] = useState('');
+  const [historyCount, setHistoryCount] = useState(0);
+
+  // Load history count when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      HistoryService.getHistoryCount().then(setHistoryCount);
+    }, [])
+  );
 
   // Rotate loading messages
   useEffect(() => {
@@ -69,9 +82,14 @@ export function HomeScreen(): React.ReactElement {
     }
   }, [cameraState.data]);
 
-  // Handle analysis complete -> navigate
+  // Handle analysis complete -> save to history and navigate
   useEffect(() => {
     if (analysisState.data) {
+      // Save to history
+      HistoryService.saveAnalysis(analysisState.data).then(() => {
+        HistoryService.getHistoryCount().then(setHistoryCount);
+      });
+      
       resetLocation();
       resetCamera();
       navigation.navigate('Results', { result: analysisState.data });
@@ -91,6 +109,24 @@ export function HomeScreen(): React.ReactElement {
     resetAnalysis();
     takePhoto();
   }, [takePhoto, resetLocation, resetCamera, resetAnalysis]);
+
+  const handleZipCodeSubmit = useCallback((): void => {
+    setZipError('');
+    
+    if (!validateZipCode(zipCodeInput)) {
+      setZipError('Please enter a valid 5-digit ZIP code');
+      return;
+    }
+    
+    resetLocation();
+    resetCamera();
+    resetAnalysis();
+    analyzeZipCode(zipCodeInput.trim());
+  }, [zipCodeInput, analyzeZipCode, resetLocation, resetCamera, resetAnalysis]);
+
+  const handleViewHistory = useCallback((): void => {
+    navigation.navigate('History');
+  }, [navigation]);
 
   const handleDismissError = useCallback((): void => {
     resetLocation();
@@ -141,6 +177,18 @@ export function HomeScreen(): React.ReactElement {
           <ThemeToggle showLabels={false} size="small" />
         </View>
 
+        {/* History Button */}
+        {historyCount > 0 && (
+          <TouchableOpacity 
+            style={[styles.historyButton, { backgroundColor: theme.colors.SURFACE }]}
+            onPress={handleViewHistory}
+          >
+            <Text style={[styles.historyButtonText, { color: theme.colors.TEXT_PRIMARY }]}>
+              📜 View History ({historyCount})
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Description */}
         <View style={[styles.descriptionCard, { backgroundColor: theme.colors.SURFACE }]}>
           <Text style={[styles.descriptionText, { color: theme.colors.TEXT_PRIMARY }]}>
@@ -171,19 +219,67 @@ export function HomeScreen(): React.ReactElement {
             size="large"
           />
 
+          {/* Camera option - mobile only */}
+          {Platform.OS !== 'web' && (
+            <>
+              <View style={styles.dividerContainer}>
+                <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
+                <Text style={[styles.dividerText, { color: theme.colors.TEXT_MUTED }]}>or</Text>
+                <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
+              </View>
+
+              <PrimaryButton
+                label="📸 Take a Photo"
+                onPress={handleTakePhoto}
+                variant="secondary"
+                disabled={isLoading}
+                size="large"
+              />
+            </>
+          )}
+
+          {/* ZIP Code input */}
           <View style={styles.dividerContainer}>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
             <Text style={[styles.dividerText, { color: theme.colors.TEXT_MUTED }]}>or</Text>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.DIVIDER }]} />
           </View>
 
-          <PrimaryButton
-            label="📸 Take a Photo"
-            onPress={handleTakePhoto}
-            variant="secondary"
-            disabled={isLoading}
-            size="large"
-          />
+          <View style={styles.zipContainer}>
+            <TextInput
+              style={[
+                styles.zipInput,
+                {
+                  backgroundColor: theme.colors.SURFACE,
+                  color: theme.colors.TEXT_PRIMARY,
+                  borderColor: zipError ? theme.colors.ERROR : theme.colors.BORDER,
+                },
+              ]}
+              placeholder="Enter ZIP Code"
+              placeholderTextColor={theme.colors.TEXT_MUTED}
+              value={zipCodeInput}
+              onChangeText={(text) => {
+                setZipCodeInput(text);
+                setZipError('');
+              }}
+              keyboardType="number-pad"
+              maxLength={5}
+              returnKeyType="search"
+              onSubmitEditing={handleZipCodeSubmit}
+            />
+            <PrimaryButton
+              label="🔍"
+              onPress={handleZipCodeSubmit}
+              disabled={isLoading || zipCodeInput.length < 5}
+              size="medium"
+              fullWidth={false}
+            />
+          </View>
+          {zipError ? (
+            <Text style={[styles.zipError, { color: theme.colors.ERROR }]}>
+              {zipError}
+            </Text>
+          ) : null}
         </View>
 
         {/* Privacy Note */}
@@ -205,13 +301,15 @@ export function HomeScreen(): React.ReactElement {
         />
       )}
 
-      {/* No Location Modal */}
-      <NoLocationModal
-        visible={showNoLocationModal}
-        onUseCurrentLocation={handleModalUseLocation}
-        onTryAgain={handleModalTryAgain}
-        onDismiss={handleModalDismiss}
-      />
+      {/* No Location Modal - mobile only */}
+      {Platform.OS !== 'web' && (
+        <NoLocationModal
+          visible={showNoLocationModal}
+          onUseCurrentLocation={handleModalUseLocation}
+          onTryAgain={handleModalTryAgain}
+          onDismiss={handleModalDismiss}
+        />
+      )}
     </SafeContainer>
   );
 }
@@ -224,6 +322,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: LAYOUT.PADDING_HORIZONTAL,
     paddingTop: 40,
     paddingBottom: 40,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     alignItems: 'center',
@@ -244,7 +345,23 @@ const styles = StyleSheet.create({
   },
   themeSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  historyButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyButtonText: {
+    fontSize: TYPOGRAPHY.BODY_SMALL,
+    fontWeight: '600',
   },
   descriptionCard: {
     borderRadius: LAYOUT.CARD_BORDER_RADIUS,
@@ -278,6 +395,23 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontSize: TYPOGRAPHY.BODY_SMALL,
+  },
+  zipContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  zipInput: {
+    flex: 1,
+    height: 50,
+    borderRadius: LAYOUT.BUTTON_BORDER_RADIUS,
+    borderWidth: 2,
+    paddingHorizontal: 16,
+    fontSize: TYPOGRAPHY.BODY_MEDIUM,
+  },
+  zipError: {
+    fontSize: TYPOGRAPHY.CAPTION,
+    marginTop: -8,
   },
   privacyNote: {
     fontSize: TYPOGRAPHY.CAPTION,

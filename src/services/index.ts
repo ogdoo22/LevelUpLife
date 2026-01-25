@@ -30,3 +30,8 @@ export {
   type ShareContent,
   type ShareResult,
 } from './shareService';
+export {
+  HistoryService,
+  HistoryServiceClass,
+  type HistoryItem,
+} from './historyService';
