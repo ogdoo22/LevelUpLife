@@ -246,16 +246,15 @@ export function ResultsScreen(): React.ReactElement {
           </View>
 
           {/* Motivation Section */}
-          <LinearGradient
-            colors={tierColors.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.motivationCard}
-          >
-            <Text style={[styles.motivationText, { fontFamily: FONTS.display }]}>
-              {result.motivationalMessage}
+          <View style={[styles.motivationCard, { backgroundColor: theme.colors.SURFACE }]}>
+            <View style={[styles.motivationAccent, { backgroundColor: theme.colors.PRIMARY }]} />
+            <Text style={[styles.motivationLabel, { color: theme.colors.TEXT_MUTED, fontFamily: FONTS.body }]}>
+              REMEMBER
             </Text>
-          </LinearGradient>
+            <Text style={[styles.motivationText, { color: theme.colors.TEXT_PRIMARY, fontFamily: FONTS.display }]}>
+              "{result.motivationalMessage}"
+            </Text>
+          </View>
 
           {/* Action Button */}
           <TouchableOpacity
@@ -528,12 +527,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: SPACING.xl,
     marginBottom: SPACING.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  motivationAccent: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    marginBottom: SPACING.md,
+  },
+  motivationLabel: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: SPACING.sm,
   },
   motivationText: {
     fontSize: 20,
     lineHeight: 30,
-    color: '#FFFFFF',
-    textAlign: 'center',
     fontStyle: 'italic',
   },
 

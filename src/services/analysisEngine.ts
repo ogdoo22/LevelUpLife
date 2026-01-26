@@ -1,186 +1,224 @@
 /**
- * @fileoverview Core analysis engine for Level Up Life.
- * Orchestrates data fetching, calculations, and content generation.
- * This is the main business logic that powers the app's analysis feature.
+ * @fileoverview Analysis engine - orchestrates neighborhood analysis.
  */
 
-import {
+import { 
+  AnalysisResult, 
+  NeighborhoodData, 
   LocationData,
-  NeighborhoodData,
-  NeighborhoodContext,
-  AnalysisResult,
-  AnalysisDisplayStrings,
   CareerSuggestion,
   LevelUpStep,
-  AppError,
-  ErrorCode,
   WealthTier,
 } from '../types';
-import { LocationService } from './locationService';
 import { NeighborhoodDataService } from './neighborhoodDataService';
-import {
+import { LocationService } from './locationService';
+import { 
+  calculateWealthTier, 
   formatCurrency,
-  formatMonthlyAmount,
+  selectRandom,
   calculateIncomeNeededForHome,
-  generateRoast,
-  generateMotivation,
-  generateIncomeMotivation,
-  selectRelevantCareers,
-  generateLevelUpSteps,
-  getWealthTierDisplayName,
-  formatLocationString,
-  formatIncomeNeededDisplay,
 } from '../utils';
-import { ERROR_MESSAGES } from '../constants';
+import {
+  ROAST_TEMPLATES,
+  MOTIVATIONAL_MESSAGES,
+  CAREER_SUGGESTIONS,
+  LEVEL_UP_STEPS,
+} from '../constants';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-/**
- * Configuration for analysis (allows customization).
- */
 export interface AnalysisConfig {
-  /** Estimated current income of user (for gap calculations) */
-  readonly estimatedCurrentIncome: number;
-  /** Number of career suggestions to return */
-  readonly careerSuggestionCount: number;
-  /** Current wealth tier of user (estimated) */
-  readonly estimatedCurrentTier: WealthTier;
+  includeCareerSuggestions?: boolean;
+  includeLevelUpSteps?: boolean;
+  maxCareerSuggestions?: number;
+  maxLevelUpSteps?: number;
 }
 
-/**
- * Default configuration.
- */
 const DEFAULT_CONFIG: AnalysisConfig = {
-  estimatedCurrentIncome: 75000, // Median US household income
-  careerSuggestionCount: 3,
-  estimatedCurrentTier: WealthTier.COMFORTABLE,
+  includeCareerSuggestions: true,
+  includeLevelUpSteps: true,
+  maxCareerSuggestions: 3,
+  maxLevelUpSteps: 5,
+};
+
+// ZIP code to city mapping for common lookups
+const ZIP_TO_CITY: Record<string, { city: string; state: string }> = {
+  // Ultra Wealthy
+  '90210': { city: 'Beverly Hills', state: 'CA' },
+  '94027': { city: 'Atherton', state: 'CA' },
+  '33480': { city: 'Palm Beach', state: 'FL' },
+  '81611': { city: 'Aspen', state: 'CO' },
+  // Wealthy
+  '94301': { city: 'Palo Alto', state: 'CA' },
+  '06830': { city: 'Greenwich', state: 'CT' },
+  '85254': { city: 'Scottsdale', state: 'AZ' },
+  '34102': { city: 'Naples', state: 'FL' },
+  // Affluent
+  '90039': { city: 'Silver Lake', state: 'CA' },
+  '11211': { city: 'Williamsburg', state: 'NY' },
+  '80206': { city: 'Cherry Creek', state: 'CO' },
+  '30305': { city: 'Buckhead', state: 'GA' },
+  // Comfortable
+  '78701': { city: 'Austin', state: 'TX' },
+  '27601': { city: 'Raleigh', state: 'NC' },
+  '32801': { city: 'Orlando', state: 'FL' },
+  '85004': { city: 'Phoenix', state: 'AZ' },
+  // Modest
+  '48201': { city: 'Detroit', state: 'MI' },
+  '44101': { city: 'Cleveland', state: 'OH' },
+  '38103': { city: 'Memphis', state: 'TN' },
+  '14201': { city: 'Buffalo', state: 'NY' },
+  // Texas
+  '77598': { city: 'Webster', state: 'TX' },
+  '77001': { city: 'Houston', state: 'TX' },
+  '77002': { city: 'Houston', state: 'TX' },
+  '75201': { city: 'Dallas', state: 'TX' },
+  '78201': { city: 'San Antonio', state: 'TX' },
+  // California
+  '90001': { city: 'Los Angeles', state: 'CA' },
+  '94102': { city: 'San Francisco', state: 'CA' },
+  '92101': { city: 'San Diego', state: 'CA' },
+  // New York
+  '10001': { city: 'New York', state: 'NY' },
+  '10013': { city: 'New York', state: 'NY' },
+  '11201': { city: 'Brooklyn', state: 'NY' },
+  // Florida
+  '33101': { city: 'Miami', state: 'FL' },
+  '33139': { city: 'Miami Beach', state: 'FL' },
+  // Others
+  '60601': { city: 'Chicago', state: 'IL' },
+  '98101': { city: 'Seattle', state: 'WA' },
+  '02101': { city: 'Boston', state: 'MA' },
+  '80202': { city: 'Denver', state: 'CO' },
+  '30301': { city: 'Atlanta', state: 'GA' },
+  '85001': { city: 'Phoenix', state: 'AZ' },
+  '89101': { city: 'Las Vegas', state: 'NV' },
+  '97201': { city: 'Portland', state: 'OR' },
+  '19101': { city: 'Philadelphia', state: 'PA' },
+  '20001': { city: 'Washington', state: 'DC' },
 };
 
 // ============================================================================
 // ANALYSIS ENGINE CLASS
 // ============================================================================
 
-/**
- * Main analysis engine that coordinates all analysis operations.
- * Designed as a class for testability via dependency injection.
- */
-class AnalysisEngineClass {
+export class AnalysisEngineClass {
   private config: AnalysisConfig;
 
-  constructor(config: Partial<AnalysisConfig> = {}) {
+  constructor(config: AnalysisConfig = DEFAULT_CONFIG) {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   /**
-   * Performs full analysis of a location.
-   * This is the main entry point for analysis.
-   *
-   * @param location - Location to analyze
-   * @returns Complete analysis result
-   * @throws AppError on failure
+   * Analyze a location by coordinates.
    */
-  async analyzeLocation(location: LocationData): Promise<AnalysisResult> {
+  async analyzeByLocation(location: LocationData): Promise<AnalysisResult> {
     try {
-      // Step 1: Reverse geocode to get address
+      // Get address from coordinates
       const address = await LocationService.reverseGeocode(
         location.latitude,
         location.longitude
       );
 
-      // Step 2: Get neighborhood data
+      // Get neighborhood data
       const neighborhoodData = await NeighborhoodDataService.getNeighborhoodData(
-        address.zipCode
+        location.latitude,
+        location.longitude,
+        address.postalCode
       );
 
-      // Step 3: Generate all content
-      return this.assembleResult(neighborhoodData, address.neighborhood);
+      // Update neighborhood data with address info
+      neighborhoodData.city = address.city || neighborhoodData.city;
+      neighborhoodData.state = address.state || neighborhoodData.state;
+      neighborhoodData.zipCode = address.postalCode || neighborhoodData.zipCode;
+
+      return this.buildAnalysisResult(neighborhoodData);
     } catch (error) {
-      throw this.ensureAppError(error);
+      throw {
+        code: 'ANALYSIS_FAILED',
+        message: 'Failed to analyze location',
+        useerFriendlyMessage: "Couldn't analyze this location. Please try again.",
+        recoverable: true
+      };
     }
   }
 
   /**
-   * Analyzes a location by ZIP code directly.
-   * Useful when location is known without GPS.
-   *
-   * @param zipCode - ZIP code to analyze
-   * @param cityName - Optional city name override
-   * @returns Complete analysis result
+   * Analyze a location by ZIP code.
    */
-  async analyzeByZipCode(
-    zipCode: string,
-    cityName?: string
-  ): Promise<AnalysisResult> {
+  async analyzeByZipCode(zipCode: string, customName?: string): Promise<AnalysisResult> {
     try {
-      const neighborhoodData = await NeighborhoodDataService.getNeighborhoodData(zipCode);
-      return this.assembleResult(neighborhoodData, cityName ?? null);
+      // Look up city/state from ZIP
+      const zipInfo = ZIP_TO_CITY[zipCode];
+      
+      // Get neighborhood data
+      const neighborhoodData = await NeighborhoodDataService.getNeighborhoodDataByZip(zipCode);
+
+      // Use custom name, ZIP lookup, or geocode result
+      if (customName) {
+        neighborhoodData.city = customName;
+      } else if (zipInfo) {
+        neighborhoodData.city = zipInfo.city;
+        neighborhoodData.state = zipInfo.state;
+      } else {
+        // Try to geocode the ZIP to get city name
+        try {
+          const coords = await this.getZipCoordinates(zipCode);
+          if (coords) {
+            const address = await LocationService.reverseGeocode(coords.lat, coords.lng);
+            if (address.city) {
+              neighborhoodData.city = address.city;
+              neighborhoodData.state = address.state || neighborhoodData.state;
+            }
+          }
+        } catch (e) {
+          // Keep existing city name if geocode fails
+          console.log('ZIP geocode failed, using default');
+        }
+      }
+
+      neighborhoodData.zipCode = zipCode;
+
+      return this.buildAnalysisResult(neighborhoodData);
     } catch (error) {
-      throw this.ensureAppError(error);
+      throw {
+        code: 'ANALYSIS_FAILED',
+        message: 'Failed to analyze ZIP code',
+        userFriendlyMessage: "Couldn't analyze this ZIP code. Please check and try again.",
+        recoverable: true,
+      };
     }
   }
 
   /**
-   * Assembles the complete analysis result from neighborhood data.
-   *
-   * @param neighborhoodData - Data about the neighborhood
-   * @param customNeighborhoodName - Optional override for neighborhood name
-   * @returns Complete analysis result
+   * Get approximate coordinates for a ZIP code.
    */
-  private assembleResult(
-    neighborhoodData: NeighborhoodData,
-    customNeighborhoodName: string | null
-  ): AnalysisResult {
-    // Determine the neighborhood name to use
-    const neighborhoodName = customNeighborhoodName || neighborhoodData.city;
+  private async getZipCoordinates(zipCode: string): Promise<{ lat: number; lng: number } | null> {
+    // This would ideally call a geocoding API
+    // For now, return null and let the geocode happen via LocationService
+    return null;
+  }
 
-    // Calculate income needed
-    const incomeNeeded = calculateIncomeNeededForHome(neighborhoodData.medianHomePrice);
-
-    // Generate roast message
-    const roastMessage = generateRoast(
-      neighborhoodData.wealthTier,
-      neighborhoodName,
-      neighborhoodData.zipCode,
-      neighborhoodData.medianHomePrice,
-      neighborhoodData.medianHouseholdIncome
+  /**
+   * Build the full analysis result.
+   */
+  private buildAnalysisResult(neighborhoodData: NeighborhoodData): AnalysisResult {
+    const wealthTier = calculateWealthTier(
+      neighborhoodData.medianIncome,
+      neighborhoodData.medianHomePrice
     );
+    neighborhoodData.wealthTier = wealthTier;
 
-    // Generate motivational message
-    const motivationalMessage = this.generateCombinedMotivation(
-      neighborhoodData.wealthTier,
-      incomeNeeded
-    );
-
-    // Get career suggestions
-    const careerSuggestions = selectRelevantCareers(
-      incomeNeeded,
-      this.config.careerSuggestionCount
-    );
-
-    // Generate level up steps
-    const levelUpSteps = generateLevelUpSteps(
-      this.config.estimatedCurrentIncome,
-      incomeNeeded,
-      neighborhoodData.wealthTier
-    );
-
-    // Generate display strings (pass custom name for location string)
-    const displayStrings = this.generateDisplayStrings(
-      neighborhoodData,
-      incomeNeeded,
-      customNeighborhoodName
-    );
-
-    // Generate neighborhood context (optional enrichment)
-    const neighborhoodContext = this.generateNeighborhoodContext(
-      neighborhoodData.wealthTier
-    );
+    const roastMessage = this.generateRoast(neighborhoodData);
+    const motivationalMessage = this.selectMotivationalMessage(wealthTier);
+    const careerSuggestions = this.selectCareerSuggestions(wealthTier);
+    const levelUpSteps = this.selectLevelUpSteps(wealthTier);
+    const displayStrings = this.buildDisplayStrings(neighborhoodData);
 
     return {
       neighborhoodData,
-      neighborhoodContext,
       roastMessage,
       motivationalMessage,
       careerSuggestions,
@@ -191,135 +229,75 @@ class AnalysisEngineClass {
   }
 
   /**
-   * Generates combined motivational message.
+   * Generate a roast message for the neighborhood.
    */
-  private generateCombinedMotivation(
-    targetTier: WealthTier,
-    incomeNeeded: number
-  ): string {
-    const tierMotivation = generateMotivation(
-      this.config.estimatedCurrentTier,
-      targetTier
-    );
+  private generateRoast(data: NeighborhoodData): string {
+    const templates = ROAST_TEMPLATES[data.wealthTier];
+    const template = selectRandom(templates) || templates[0];
     
-    const incomeMotivation = generateIncomeMotivation(
-      this.config.estimatedCurrentIncome,
-      incomeNeeded
-    );
-
-    // Combine messages intelligently
-    if (this.config.estimatedCurrentIncome >= incomeNeeded) {
-      return tierMotivation;
-    }
-
-    return `${tierMotivation} ${incomeMotivation}`;
+    return template
+      .replace('{{neighborhood}}', data.city)
+      .replace('{{homePrice}}', formatCurrency(data.medianHomePrice))
+      .replace('{{income}}', formatCurrency(data.medianIncome));
   }
 
   /**
-   * Generates pre-formatted display strings.
+   * Select a motivational message based on tier.
    */
-  private generateDisplayStrings(
-    data: NeighborhoodData,
-    incomeNeeded: number,
-    customCityName?: string | null
-  ): AnalysisDisplayStrings {
-    const cityToDisplay = customCityName || data.city;
+  private selectMotivationalMessage(tier: WealthTier): string {
+    const messages = MOTIVATIONAL_MESSAGES[tier];
+    return selectRandom(messages) || messages[0];
+  }
+
+  /**
+   * Select career suggestions for the tier.
+   */
+  private selectCareerSuggestions(tier: WealthTier): CareerSuggestion[] {
+    const careers = CAREER_SUGGESTIONS[tier] || [];
+    const count = this.config.maxCareerSuggestions || 3;
+    
+    // Shuffle and take top N
+    const shuffled = [...careers].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
+
+  /**
+   * Select level-up steps for the tier.
+   */
+  private selectLevelUpSteps(tier: WealthTier): LevelUpStep[] {
+    const steps = LEVEL_UP_STEPS[tier] || [];
+    const count = this.config.maxLevelUpSteps || 5;
+    return steps.slice(0, count);
+  }
+
+  /**
+   * Build display-ready strings.
+   */
+  private buildDisplayStrings(data: NeighborhoodData) {
+    const incomeNeeded = calculateIncomeNeededForHome(data.medianHomePrice);
     
     return {
+      fullLocationString: `${data.city}, ${data.state}`,
       formattedHomePrice: formatCurrency(data.medianHomePrice),
-      formattedIncome: formatCurrency(data.medianHouseholdIncome),
-      formattedRent: formatMonthlyAmount(data.averageRent),
-      fullLocationString: formatLocationString(
-        cityToDisplay,
-        data.state,
-        data.zipCode
-      ),
-      wealthTierDisplay: getWealthTierDisplayName(data.wealthTier),
-      incomeNeededDisplay: formatIncomeNeededDisplay(incomeNeeded),
+      formattedIncome: formatCurrency(data.medianIncome),
+      formattedRent: formatCurrency(data.averageRent, { compact: false }),
+      incomeNeededDisplay: `~${formatCurrency(incomeNeeded)}/year`,
+      wealthTierDisplay: this.getTierDisplayName(data.wealthTier),
     };
   }
 
   /**
-   * Generates optional neighborhood context.
+   * Get human-readable tier name.
    */
-  private generateNeighborhoodContext(
-    tier: WealthTier
-  ): NeighborhoodContext | null {
-    // Generate context based on wealth tier
-    const contextByTier: Record<WealthTier, NeighborhoodContext> = {
-      [WealthTier.MODEST]: {
-        commonProfessions: ['Service workers', 'Retail employees', 'Healthcare aides', 'Tradespeople'],
-        characteristics: ['Working class', 'Tight-knit community', 'Affordable housing'],
-        funFact: 'Residents here spend less on housing but often have stronger neighborhood connections.',
-      },
-      [WealthTier.COMFORTABLE]: {
-        commonProfessions: ['Teachers', 'Nurses', 'Managers', 'Small business owners'],
-        characteristics: ['Middle class', 'Good schools', 'Family-oriented'],
-        funFact: 'The sweet spot - enough to be comfortable, not enough to be stressed about appearances.',
-      },
-      [WealthTier.AFFLUENT]: {
-        commonProfessions: ['Doctors', 'Lawyers', 'Senior engineers', 'Executives'],
-        characteristics: ['Upper middle class', 'Excellent schools', 'Well-maintained'],
-        funFact: 'Residents here have a Peloton they used twice and a subscription to The Economist.',
-      },
-      [WealthTier.WEALTHY]: {
-        commonProfessions: ['C-suite executives', 'Business owners', 'Surgeons', 'Partners at firms'],
-        characteristics: ['Wealthy enclave', 'Private schools nearby', 'Gated sections'],
-        funFact: 'The dogs here have better healthcare than most Americans.',
-      },
-      [WealthTier.ULTRA_WEALTHY]: {
-        commonProfessions: ['Investors', 'Heirs', 'Tech founders', 'Celebrity residents'],
-        characteristics: ['Ultra exclusive', 'Estate properties', 'Private everything'],
-        funFact: 'Problems here include "which charity gala to attend" and "yacht maintenance scheduling."',
-      },
+  private getTierDisplayName(tier: WealthTier): string {
+    const names: Record<WealthTier, string> = {
+      [WealthTier.MODEST]: 'Working Class',
+      [WealthTier.COMFORTABLE]: 'Middle Class',
+      [WealthTier.AFFLUENT]: 'Upper Middle Class',
+      [WealthTier.WEALTHY]: 'Wealthy',
+      [WealthTier.ULTRA_WEALTHY]: 'Ultra Wealthy',
     };
-
-    return contextByTier[tier] || null;
-  }
-
-  /**
-   * Updates configuration.
-   */
-  updateConfig(newConfig: Partial<AnalysisConfig>): void {
-    this.config = { ...this.config, ...newConfig };
-  }
-
-  /**
-   * Gets current configuration.
-   */
-  getConfig(): AnalysisConfig {
-    return { ...this.config };
-  }
-
-  /**
-   * Ensures an error is an AppError.
-   */
-  private ensureAppError(error: unknown): AppError {
-    if (this.isAppError(error)) {
-      return error;
-    }
-    
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      code: ErrorCode.UNKNOWN_ERROR,
-      message,
-      userFriendlyMessage: ERROR_MESSAGES[ErrorCode.UNKNOWN_ERROR],
-      recoverable: true,
-    };
-  }
-
-  /**
-   * Type guard for AppError.
-   */
-  private isAppError(error: unknown): error is AppError {
-    if (typeof error !== 'object' || error === null) {
-      return false;
-    }
-    const obj = error as Record<string, unknown>;
-    return (
-      typeof obj.code === 'string' &&
-      typeof obj.userFriendlyMessage === 'string'
-    );
+    return names[tier];
   }
 }
 
@@ -327,17 +305,4 @@ class AnalysisEngineClass {
 // SINGLETON EXPORT
 // ============================================================================
 
-/**
- * Singleton instance for app-wide use.
- */
 export const AnalysisEngine = new AnalysisEngineClass();
-
-/**
- * Export class for testing.
- */
-export { AnalysisEngineClass };
-
-/**
- * Export config type for external use.
- */
-export type { AnalysisConfig };
