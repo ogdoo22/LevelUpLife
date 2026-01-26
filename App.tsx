@@ -1,26 +1,31 @@
 /**
- * @fileoverview App entry point with font loading.
+ * @fileoverview App entry point with animated splash screen.
  */
 
-import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider } from './src/contexts';
 import { AppNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components';
+import { SplashScreen } from './src/screens';
 import { useAppFonts } from './src/hooks';
 
 function AppContent(): React.ReactElement {
   const [fontsLoaded, fontError] = useAppFonts();
+  const [splashFinished, setSplashFinished] = useState(false);
 
+  // Show nothing while fonts load
   if (!fontsLoaded && !fontError) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#E8A0BF" />
-      </View>
-    );
+    return <View style={styles.loading} />;
   }
 
+  // Show animated splash
+  if (!splashFinished) {
+    return <SplashScreen onFinish={() => setSplashFinished(true)} />;
+  }
+
+  // Show main app
   return <AppNavigator />;
 }
 
@@ -39,8 +44,6 @@ export default function App(): React.ReactElement {
 const styles = StyleSheet.create({
   loading: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFF5F7',
+    backgroundColor: '#E8A0BF',
   },
 });
