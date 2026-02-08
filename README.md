@@ -42,9 +42,8 @@ LevelUpLife/
 ## Current Issues
 1) Upon using the picture taking option, the app freezes. Expo Go log says `ImagePicker.MediaTypeOptions` have been deprecated. Use `ImagePicker.MediaType` or an array of `ImagePicker.MediaType` instead.
 2) Start-up screen text is misaligned and not centering properly.
-3) Need to change emojis on start up page to something else
-4) Responses need to be catered to more catered to girls
-5) Several unit test fail
+3) Responses need to be catered to more catered to girls
+4) Several unit test fail
 
 ## 📐 Coding Standards
 
