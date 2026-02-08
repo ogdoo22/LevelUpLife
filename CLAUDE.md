@@ -58,6 +58,10 @@ This project enforces strict "aerospace-grade" rules:
 - `src/utils/calculations.ts` and `src/services/analysisEngine.ts` require 100% coverage
 - Tests live in `src/__tests__/unit/` and `src/__tests__/integration/`
 
+## Git
+
+- Do not include `Co-Authored-By` lines in commit messages
+
 ## Environment
 
 - Requires Node.js 18+
