@@ -19,10 +19,10 @@ import {
   calculateIncomeNeededForHome,
 } from '../utils';
 import {
-  ROAST_TEMPLATES,
+  ROAST_MESSAGES,
   MOTIVATIONAL_MESSAGES,
-  CAREER_SUGGESTIONS,
-  LEVEL_UP_STEPS,
+  CAREER_DATABASE,
+  LEVEL_UP_STEP_TEMPLATES,
 } from '../constants';
 
 // ============================================================================
@@ -114,7 +114,7 @@ export class AnalysisEngineClass {
   /**
    * Analyze a location by coordinates.
    */
-  async analyzeByLocation(location: LocationData): Promise<AnalysisResult> {
+  async analyzeLocation(location: LocationData): Promise<AnalysisResult> {
     try {
       // Get address from coordinates
       const address = await LocationService.reverseGeocode(
@@ -124,15 +124,13 @@ export class AnalysisEngineClass {
 
       // Get neighborhood data
       const neighborhoodData = await NeighborhoodDataService.getNeighborhoodData(
-        location.latitude,
-        location.longitude,
-        address.postalCode
+        address.zipCode
       );
 
       // Update neighborhood data with address info
       neighborhoodData.city = address.city || neighborhoodData.city;
       neighborhoodData.state = address.state || neighborhoodData.state;
-      neighborhoodData.zipCode = address.postalCode || neighborhoodData.zipCode;
+      neighborhoodData.zipCode = address.zipCode || neighborhoodData.zipCode;
 
       return this.buildAnalysisResult(neighborhoodData);
     } catch (error) {
@@ -154,7 +152,7 @@ export class AnalysisEngineClass {
       const zipInfo = ZIP_TO_CITY[zipCode];
       
       // Get neighborhood data
-      const neighborhoodData = await NeighborhoodDataService.getNeighborhoodDataByZip(zipCode);
+      const neighborhoodData = await NeighborhoodDataService.getNeighborhoodData(zipCode);
 
       // Use custom name, ZIP lookup, or geocode result
       if (customName) {
@@ -206,7 +204,7 @@ export class AnalysisEngineClass {
    */
   private buildAnalysisResult(neighborhoodData: NeighborhoodData): AnalysisResult {
     const wealthTier = calculateWealthTier(
-      neighborhoodData.medianIncome,
+      neighborhoodData.medianHouseholdIncome,
       neighborhoodData.medianHomePrice
     );
     neighborhoodData.wealthTier = wealthTier;
@@ -219,6 +217,7 @@ export class AnalysisEngineClass {
 
     return {
       neighborhoodData,
+      neighborhoodContext: null,
       roastMessage,
       motivationalMessage,
       careerSuggestions,
@@ -232,20 +231,21 @@ export class AnalysisEngineClass {
    * Generate a roast message for the neighborhood.
    */
   private generateRoast(data: NeighborhoodData): string {
-    const templates = ROAST_TEMPLATES[data.wealthTier];
-    const template = selectRandom(templates) || templates[0];
-    
+    const messages = ROAST_MESSAGES[data.wealthTier];
+    const template = selectRandom(messages) || messages[0];
+
     return template
       .replace('{{neighborhood}}', data.city)
       .replace('{{homePrice}}', formatCurrency(data.medianHomePrice))
-      .replace('{{income}}', formatCurrency(data.medianIncome));
+      .replace('{{income}}', formatCurrency(data.medianHouseholdIncome));
   }
 
   /**
    * Select a motivational message based on tier.
    */
-  private selectMotivationalMessage(tier: WealthTier): string {
-    const messages = MOTIVATIONAL_MESSAGES[tier];
+  private selectMotivationalMessage(_tier: WealthTier): string {
+    // MOTIVATIONAL_MESSAGES is keyed by tier gap (0-4); default to gap 0
+    const messages = MOTIVATIONAL_MESSAGES[0];
     return selectRandom(messages) || messages[0];
   }
 
@@ -253,21 +253,61 @@ export class AnalysisEngineClass {
    * Select career suggestions for the tier.
    */
   private selectCareerSuggestions(tier: WealthTier): CareerSuggestion[] {
-    const careers = CAREER_SUGGESTIONS[tier] || [];
     const count = this.config.maxCareerSuggestions || 3;
-    
-    // Shuffle and take top N
-    const shuffled = [...careers].sort(() => Math.random() - 0.5);
+
+    // Filter careers whose salary range fits this tier's income level
+    const tierMinIncome = this.getTierMinIncome(tier);
+    const relevant = CAREER_DATABASE.filter(
+      (c) => c.salaryMax >= tierMinIncome
+    );
+
+    const pool = relevant.length > 0 ? relevant : CAREER_DATABASE;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
+  }
+
+  /**
+   * Get minimum income threshold for a tier.
+   */
+  private getTierMinIncome(tier: WealthTier): number {
+    const thresholds: Record<WealthTier, number> = {
+      [WealthTier.MODEST]: 0,
+      [WealthTier.COMFORTABLE]: 50000,
+      [WealthTier.AFFLUENT]: 100000,
+      [WealthTier.WEALTHY]: 200000,
+      [WealthTier.ULTRA_WEALTHY]: 500000,
+    };
+    return thresholds[tier];
   }
 
   /**
    * Select level-up steps for the tier.
    */
-  private selectLevelUpSteps(tier: WealthTier): LevelUpStep[] {
-    const steps = LEVEL_UP_STEPS[tier] || [];
+  private selectLevelUpSteps(_tier: WealthTier): LevelUpStep[] {
     const count = this.config.maxLevelUpSteps || 5;
-    return steps.slice(0, count);
+
+    // Gather one random step from each category
+    const categories = Object.values(LEVEL_UP_STEP_TEMPLATES);
+    const allSteps: LevelUpStep[] = [];
+
+    for (const categorySteps of categories) {
+      const pick = selectRandom(categorySteps);
+      if (pick) {
+        allSteps.push({
+          stepNumber: allSteps.length + 1,
+          action: pick.action,
+          funNote: pick.funNote,
+          estimatedImpact: pick.estimatedImpact,
+        });
+      }
+    }
+
+    // Shuffle and return up to count
+    const shuffled = allSteps.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count).map((step, i) => ({
+      ...step,
+      stepNumber: i + 1,
+    }));
   }
 
   /**
@@ -279,7 +319,7 @@ export class AnalysisEngineClass {
     return {
       fullLocationString: `${data.city}, ${data.state}`,
       formattedHomePrice: formatCurrency(data.medianHomePrice),
-      formattedIncome: formatCurrency(data.medianIncome),
+      formattedIncome: formatCurrency(data.medianHouseholdIncome),
       formattedRent: formatCurrency(data.averageRent, { compact: false }),
       incomeNeededDisplay: `~${formatCurrency(incomeNeeded)}/year`,
       wealthTierDisplay: this.getTierDisplayName(data.wealthTier),
