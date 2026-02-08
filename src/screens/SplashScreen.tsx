@@ -351,6 +351,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: FONTS.display,
     fontStyle: 'italic',
+    textAlign: 'center',
+    maxWidth: SCREEN_WIDTH * 0.8,
     textShadowColor: 'rgba(0,0,0,0.1)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -361,6 +363,8 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     marginTop: 8,
     letterSpacing: 0.5,
+    textAlign: 'center',
+    maxWidth: SCREEN_WIDTH * 0.8,
   },
 });
 
