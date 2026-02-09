@@ -91,7 +91,7 @@ class ImageServiceClass {
 
     // Fall back to tier-based image
     const tierImages = TIER_FALLBACK_IMAGES[tier];
-    return tierImages[index % tierImages.length];
+    return tierImages[index % tierImages.length] ?? tierImages[0] ?? '';
   }
 
   /**
@@ -100,7 +100,7 @@ class ImageServiceClass {
   getTierImage(tier: WealthTier): string {
     const images = TIER_FALLBACK_IMAGES[tier];
     const randomIndex = Math.floor(Math.random() * images.length);
-    return images[randomIndex];
+    return images[randomIndex] ?? images[0] ?? '';
   }
 
   /**
@@ -108,8 +108,9 @@ class ImageServiceClass {
    */
   getCityImage(city: string, tier: WealthTier): string {
     // Try direct match
-    if (NEIGHBORHOOD_IMAGES[city]) {
-      return NEIGHBORHOOD_IMAGES[city];
+    const directMatch = NEIGHBORHOOD_IMAGES[city];
+    if (directMatch) {
+      return directMatch;
     }
 
     // Try partial match
@@ -117,9 +118,9 @@ class ImageServiceClass {
       (key) => key.toLowerCase().includes(city.toLowerCase()) ||
                city.toLowerCase().includes(key.toLowerCase())
     );
-    
+
     if (matchKey) {
-      return NEIGHBORHOOD_IMAGES[matchKey];
+      return NEIGHBORHOOD_IMAGES[matchKey] ?? this.getTierImage(tier);
     }
 
     // Fall back to tier image

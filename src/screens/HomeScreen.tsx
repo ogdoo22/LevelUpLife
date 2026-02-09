@@ -128,6 +128,7 @@ export function HomeScreen(): React.ReactElement {
       }, 2000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [locationState.isLoading, analysisState.isLoading]);
 
   // Handle location obtained -> analyze

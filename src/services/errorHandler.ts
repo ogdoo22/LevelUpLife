@@ -4,7 +4,7 @@
  */
 
 import { AppError, ErrorCode } from '../types';
-import { ERROR_MESSAGES, RETRY_CONFIG } from '../constants';
+import { ERROR_MESSAGES } from '../constants';
 
 // ============================================================================
 // TYPES
@@ -141,7 +141,7 @@ class AppErrorHandlerClass {
    * Gets recovery suggestions for an error.
    */
   getRecoverySuggestions(code: ErrorCode): string[] {
-    const suggestions: Record<ErrorCode, string[]> = {
+    const suggestions: Partial<Record<ErrorCode, string[]>> = {
       [ErrorCode.LOCATION_PERMISSION_DENIED]: [
         'Open Settings and enable location access for Level Up Life',
         'Use the camera option instead to analyze a photo',
@@ -197,7 +197,7 @@ class AppErrorHandlerClass {
         'Restart the app if the problem persists',
       ],
     };
-    return suggestions[code] || suggestions[ErrorCode.UNKNOWN_ERROR];
+    return suggestions[code] ?? suggestions[ErrorCode.UNKNOWN_ERROR] ?? [];
   }
 
   /**

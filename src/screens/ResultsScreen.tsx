@@ -12,7 +12,6 @@ import {
   Animated,
   Alert,
   Image,
-  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,8 +25,6 @@ import { formatCurrency } from '../utils';
 
 type ResultsScreenRouteProp = RouteProp<RootStackParamList, 'Results'>;
 type ResultsScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Results'>;
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ============================================================================
 // COMPONENT
@@ -283,7 +280,7 @@ interface CareerPathCardProps {
   index: number;
 }
 
-function CareerPathCard({ career, theme, tierColors, index }: CareerPathCardProps): React.ReactElement {
+function CareerPathCard({ career, theme, tierColors }: CareerPathCardProps): React.ReactElement {
   const salaryRange = `${formatCurrency(career.salaryMin)} - ${formatCurrency(career.salaryMax)}`;
 
   return (

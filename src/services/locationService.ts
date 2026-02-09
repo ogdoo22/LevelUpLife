@@ -141,6 +141,13 @@ class LocationServiceClass {
       const address = results[0];
       console.log('LocationService: Address', address);
 
+      if (!address) {
+        throw this.createError(
+          ErrorCode.GEOCODING_FAILED,
+          'No address data in geocode result'
+        );
+      }
+
       return {
         streetAddress: address.street || address.name || null,
         neighborhood: address.district || address.subregion || null,

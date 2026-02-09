@@ -14,8 +14,7 @@ const INCOME_TO_HOME_RATIO = 3.5;
 const DEFAULT_GROWTH_RATE = 0.03;
 const MAX_PROJECTION_YEARS = 40;
 
-// ZIP Code regex patterns
-const ZIP_REGEX_SHORT = /^\d{5}$/;
+// ZIP Code regex pattern
 const ZIP_REGEX_FULL = /^\d{5}(-\d{4})?$/;
 
 // Wealth tier thresholds
@@ -367,7 +366,10 @@ export function selectRandomMultiple<T>(
 
   for (let i = 0; i < selectCount; i++) {
     const index = Math.floor(Math.random() * available.length);
-    selected.push(available.splice(index, 1)[0]);
+    const item = available.splice(index, 1)[0];
+    if (item !== undefined) {
+      selected.push(item);
+    }
   }
 
   return selected;

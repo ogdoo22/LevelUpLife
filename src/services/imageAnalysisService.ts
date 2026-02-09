@@ -12,7 +12,7 @@ import {
   AppError,
   ErrorCode,
 } from '../types';
-import { ERROR_MESSAGES, GEO_BOUNDS, NETWORK_TIMEOUTS } from '../constants';
+import { ERROR_MESSAGES, GEO_BOUNDS } from '../constants';
 import { validateCoordinates } from '../utils';
 
 // ============================================================================
@@ -27,15 +27,6 @@ export interface ImagePermissionStatus {
   readonly mediaLibraryGranted: boolean;
   readonly canAskCamera: boolean;
   readonly canAskMediaLibrary: boolean;
-}
-
-/**
- * Result of image selection (camera or gallery).
- */
-interface ImageSelectionResult {
-  readonly uri: string;
-  readonly cancelled: boolean;
-  readonly exif: Record<string, unknown> | null;
 }
 
 // ============================================================================

@@ -19,7 +19,6 @@ import { SafeContainer } from '../components';
 import { OnboardingService } from '../services';
 import { useTheme } from '../contexts';
 import { FONTS, SPACING } from '../constants/themes';
-import { LAYOUT } from '../constants';
 
 type OnboardingNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Onboarding'>;
 
@@ -76,7 +75,7 @@ export function OnboardingScreen(): React.ReactElement {
 
   const handleViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+      if (viewableItems.length > 0 && viewableItems[0]?.index != null) {
         setCurrentIndex(viewableItems[0].index);
       }
     }

@@ -8,7 +8,6 @@ import {
   NeighborhoodData,
   AppError,
   ErrorCode,
-  WealthTier,
 } from '../types';
 import { ERROR_MESSAGES, RETRY_CONFIG } from '../constants';
 import {
@@ -100,10 +99,10 @@ class MockNeighborhoodDataProvider implements INeighborhoodDataProvider {
    */
   private generateFallbackData(zipCode: string): NeighborhoodData {
     const prefix = zipCode.substring(0, 3);
-    const regionInfo = ZIP_PREFIX_REGIONS[prefix] || ZIP_PREFIX_REGIONS['default'];
+    const regionInfo = ZIP_PREFIX_REGIONS[prefix] ?? ZIP_PREFIX_REGIONS['default'];
 
     // Apply regional cost multiplier to default values
-    const multiplier = regionInfo.costMultiplier;
+    const multiplier = regionInfo?.costMultiplier ?? 1;
     
     const medianHomePrice = Math.round(DEFAULT_NEIGHBORHOOD_DATA.medianHomePrice * multiplier);
     const medianHouseholdIncome = Math.round(DEFAULT_NEIGHBORHOOD_DATA.medianHouseholdIncome * multiplier);
@@ -114,7 +113,7 @@ class MockNeighborhoodDataProvider implements INeighborhoodDataProvider {
 
     return {
       zipCode,
-      city: regionInfo.region,
+      city: regionInfo?.region ?? 'Unknown',
       state: this.getStateFromZipPrefix(prefix),
       medianHomePrice,
       medianHouseholdIncome,

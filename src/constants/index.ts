@@ -43,6 +43,7 @@ export const COLORS = {
   BUTTON_PRIMARY: '#1a1a2e',
   BUTTON_SECONDARY: '#e94560',
   BUTTON_DISABLED: '#cccccc',
+  SURFACE_DARK: '#e8e8e8',
 };
 
 // ============================================================================
@@ -340,6 +341,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.NETWORK_ERROR]: "Network error. Please check your connection and try again.",
   [ErrorCode.ANALYSIS_FAILED]: "Analysis failed. Please try again.",
   [ErrorCode.IMAGE_ANALYSIS_FAILED]: "Couldn't analyze the image. Please try a different photo.",
+  [ErrorCode.IMAGE_NO_LOCATION]: "This photo doesn't have location data. Try using your current location instead.",
+  [ErrorCode.IMAGE_PROCESSING_FAILED]: "Couldn't process the image. Please try a different photo.",
+  [ErrorCode.REQUEST_TIMEOUT]: "Request timed out. Please check your connection and try again.",
+  [ErrorCode.DATA_PARSE_ERROR]: "Couldn't process the data. Please try again.",
   [ErrorCode.UNKNOWN_ERROR]: "Something went wrong. Please try again.",
 };
 
@@ -357,6 +362,17 @@ export const RETRY_CONFIG = {
 // LOADING MESSAGES
 // ============================================================================
 
+export const LOADING_MESSAGE_INTERVAL_MS = 3000;
+
+export const GEO_BOUNDS = {
+  ACCURACY_THRESHOLD: 100,
+};
+
+export const NETWORK_TIMEOUTS = {
+  DEFAULT: 10000,
+  LONG: 30000,
+};
+
 export const FUN_LOADING_MESSAGES = [
   "Counting the zeros in home prices... 💰",
   "Judging this neighborhood so you don't have to... 👀",
@@ -373,6 +389,9 @@ export const FUN_LOADING_MESSAGES = [
 // ============================================================================
 // THEME EXPORTS
 // ============================================================================
+
+/** @deprecated Use FUN_LOADING_MESSAGES instead */
+export const LOADING_MESSAGES = FUN_LOADING_MESSAGES;
 
 export * from './themes';
 export * from './roasts';

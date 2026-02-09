@@ -11,7 +11,7 @@ import {
   View,
   AccessibilityProps,
 } from 'react-native';
-import { COLORS, LAYOUT, TYPOGRAPHY } from '../../constants';
+import { COLORS, TYPOGRAPHY } from '../../constants';
 
 // ============================================================================
 // TYPES

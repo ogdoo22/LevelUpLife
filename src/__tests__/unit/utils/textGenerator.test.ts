@@ -232,8 +232,6 @@ describe('generateLevelUpSteps', () => {
 
   it('should include big moves for ultra wealthy target', () => {
     const steps = generateLevelUpSteps(50000, 1000000, WealthTier.ULTRA_WEALTHY);
-    const actions = steps.map((s) => s.action.toLowerCase());
-    
     // Should have at least some ambitious steps
     expect(steps.length).toBeGreaterThan(2);
   });

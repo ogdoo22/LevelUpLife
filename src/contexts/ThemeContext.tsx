@@ -2,8 +2,8 @@
  * @fileoverview Theme context - locked to Rose Gold theme.
  */
 
-import React, { createContext, useContext, ReactNode } from 'react';
-import { Theme, ROSE_GOLD_THEME } from '../constants/themes';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { Theme, ThemeName, THEMES, DEFAULT_THEME } from '../constants/themes';
 
 // ============================================================================
 // TYPES
@@ -11,6 +11,8 @@ import { Theme, ROSE_GOLD_THEME } from '../constants/themes';
 
 interface ThemeContextValue {
   theme: Theme;
+  themeName: ThemeName;
+  setTheme: (name: ThemeName) => void;
 }
 
 interface ThemeProviderProps {
@@ -28,8 +30,12 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 // ============================================================================
 
 export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElement {
+  const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME);
+
   const value: ThemeContextValue = {
-    theme: ROSE_GOLD_THEME,
+    theme: THEMES[themeName],
+    themeName,
+    setTheme: setThemeName,
   };
 
   return (

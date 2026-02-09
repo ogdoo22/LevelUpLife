@@ -20,7 +20,6 @@ import { SafeContainer, GradientBackground, TierBadge } from '../components';
 import { HistoryService, HistoryItem, ImageService } from '../services';
 import { useTheme } from '../contexts';
 import { FONTS, SPACING } from '../constants/themes';
-import { formatCurrency } from '../utils';
 
 type HistoryScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
 
@@ -28,7 +27,7 @@ export function HistoryScreen(): React.ReactElement {
   const navigation = useNavigation<HistoryScreenNavigationProp>();
   const { theme } = useTheme();
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadHistory = useCallback(async () => {

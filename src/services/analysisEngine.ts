@@ -193,7 +193,7 @@ export class AnalysisEngineClass {
   /**
    * Get approximate coordinates for a ZIP code.
    */
-  private async getZipCoordinates(zipCode: string): Promise<{ lat: number; lng: number } | null> {
+  private async getZipCoordinates(_zipCode: string): Promise<{ lat: number; lng: number } | null> {
     // This would ideally call a geocoding API
     // For now, return null and let the geocode happen via LocationService
     return null;
@@ -232,9 +232,9 @@ export class AnalysisEngineClass {
    */
   private generateRoast(data: NeighborhoodData): string {
     const messages = ROAST_MESSAGES[data.wealthTier];
-    const template = selectRandom(messages) || messages[0];
+    const template = selectRandom(messages) ?? messages[0];
 
-    return template
+    return (template ?? '')
       .replace('{{neighborhood}}', data.city)
       .replace('{{homePrice}}', formatCurrency(data.medianHomePrice))
       .replace('{{income}}', formatCurrency(data.medianHouseholdIncome));
@@ -245,8 +245,8 @@ export class AnalysisEngineClass {
    */
   private selectMotivationalMessage(_tier: WealthTier): string {
     // MOTIVATIONAL_MESSAGES is keyed by tier gap (0-4); default to gap 0
-    const messages = MOTIVATIONAL_MESSAGES[0];
-    return selectRandom(messages) || messages[0];
+    const messages = MOTIVATIONAL_MESSAGES[0] ?? [];
+    return selectRandom(messages) ?? messages[0] ?? '';
   }
 
   /**
@@ -287,7 +287,7 @@ export class AnalysisEngineClass {
     const count = this.config.maxLevelUpSteps || 5;
 
     // Gather one random step from each category
-    const categories = Object.values(LEVEL_UP_STEP_TEMPLATES);
+    const categories = Object.values(LEVEL_UP_STEP_TEMPLATES) as ReadonlyArray<ReadonlyArray<{ readonly action: string; readonly funNote: string; readonly estimatedImpact?: string }>>;
     const allSteps: LevelUpStep[] = [];
 
     for (const categorySteps of categories) {

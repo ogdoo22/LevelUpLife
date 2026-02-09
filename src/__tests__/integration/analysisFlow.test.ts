@@ -5,25 +5,19 @@
 
 import { AnalysisEngine, AnalysisEngineClass } from '../../services/analysisEngine';
 import { NeighborhoodDataService } from '../../services/neighborhoodDataService';
-import { WealthTier, LocationData } from '../../types';
+import { WealthTier } from '../../types';
 
 // ============================================================================
 // MOCK LOCATION DATA
 // ============================================================================
 
-const mockLocationBeverlyHills: LocationData = {
-  latitude: 34.0736,
-  longitude: -118.4004,
-  accuracy: 10,
-  timestamp: new Date(),
-};
-
-const mockLocationDetroit: LocationData = {
-  latitude: 42.3314,
-  longitude: -83.0458,
-  accuracy: 10,
-  timestamp: new Date(),
-};
+// Mock locations for future analyzeLocation tests
+// const mockLocationBeverlyHills: LocationData = {
+//   latitude: 34.0736, longitude: -118.4004, accuracy: 10, timestamp: new Date(),
+// };
+// const mockLocationDetroit: LocationData = {
+//   latitude: 42.3314, longitude: -83.0458, accuracy: 10, timestamp: new Date(),
+// };
 
 // ============================================================================
 // analyzeByZipCode TESTS
@@ -96,24 +90,11 @@ describe('AnalysisEngine', () => {
   });
 
   describe('configuration', () => {
-    it('should allow updating config', () => {
-      const engine = new AnalysisEngineClass();
-      
-      engine.updateConfig({
-        estimatedCurrentIncome: 100000,
-        careerSuggestionCount: 5,
-      });
-      
-      const config = engine.getConfig();
-      expect(config.estimatedCurrentIncome).toBe(100000);
-      expect(config.careerSuggestionCount).toBe(5);
-    });
-
-    it('should use updated career count in results', async () => {
+    it('should use custom career count in results', async () => {
       const engine = new AnalysisEngineClass({
-        careerSuggestionCount: 5,
+        maxCareerSuggestions: 5,
       });
-      
+
       const result = await engine.analyzeByZipCode('90210');
       expect(result.careerSuggestions).toHaveLength(5);
     });
@@ -129,7 +110,7 @@ describe('AnalysisEngine', () => {
         { zip: '90210', expectedTier: WealthTier.ULTRA_WEALTHY },
       ];
 
-      for (const { zip, expectedTier } of tiers) {
+      for (const { zip } of tiers) {
         const result = await AnalysisEngine.analyzeByZipCode(zip);
         expect(result.neighborhoodContext).not.toBeNull();
         expect(result.neighborhoodContext?.commonProfessions).toBeDefined();

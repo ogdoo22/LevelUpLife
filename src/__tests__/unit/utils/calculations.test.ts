@@ -10,7 +10,6 @@ import {
   formatMonthlyAmount,
   calculateYearsToGoal,
   calculateIncomeNeededForHome,
-  calculateAffordableRent,
   validateCoordinates,
   validateZipCode,
   normalizeZipCode,

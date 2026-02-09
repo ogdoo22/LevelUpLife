@@ -233,7 +233,6 @@ export function generateLevelUpSteps(
   targetTier: WealthTier
 ): LevelUpStep[] {
   const steps: LevelUpStep[] = [];
-  const incomeGap = targetIncome - currentIncome;
   let stepNumber = 1;
 
   // Determine which types of steps to include based on gap size

@@ -8,7 +8,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
 } from 'react-native';
 import { useTheme } from '../../contexts';
 import { THEMES, ThemeName } from '../../constants/themes';

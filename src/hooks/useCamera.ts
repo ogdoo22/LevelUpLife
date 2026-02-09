@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { CameraState, ImageAnalysisResult, AppError, ErrorCode } from '../types';
+import { CameraState, AppError, ErrorCode } from '../types';
 import { ImageAnalysisService } from '../services';
 import { ERROR_MESSAGES } from '../constants';
 
@@ -31,10 +31,15 @@ export function useCamera(): UseCameraReturn {
     });
 
     try {
-      const result = await ImageAnalysisService.captureAndAnalyze();
-      
+      const captureResult = await ImageAnalysisService.captureImage();
+
       setState({
-        data: result,
+        data: {
+          uri: captureResult.imageUri,
+          location: captureResult.location,
+          hasLocationData: captureResult.hasLocationData,
+          timestamp: new Date(),
+        },
         isLoading: false,
         error: null,
       });
@@ -62,10 +67,15 @@ export function useCamera(): UseCameraReturn {
     });
 
     try {
-      const result = await ImageAnalysisService.pickAndAnalyze();
-      
+      const galleryResult = await ImageAnalysisService.selectFromGallery();
+
       setState({
-        data: result,
+        data: {
+          uri: galleryResult.imageUri,
+          location: galleryResult.location,
+          hasLocationData: galleryResult.hasLocationData,
+          timestamp: new Date(),
+        },
         isLoading: false,
         error: null,
       });

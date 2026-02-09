@@ -6,7 +6,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { WealthTier } from '../../types';
 import { useTheme } from '../../contexts';
-import { FONTS, SPACING } from '../../constants/themes';
+import { FONTS } from '../../constants/themes';
 
 interface TierBadgeProps {
   tier: WealthTier;

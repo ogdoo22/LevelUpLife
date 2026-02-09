@@ -60,6 +60,12 @@ export enum ErrorCode {
   // Analysis errors
   ANALYSIS_FAILED = 'ANALYSIS_FAILED',
   IMAGE_ANALYSIS_FAILED = 'IMAGE_ANALYSIS_FAILED',
+  IMAGE_NO_LOCATION = 'IMAGE_NO_LOCATION',
+  IMAGE_PROCESSING_FAILED = 'IMAGE_PROCESSING_FAILED',
+
+  // Network errors
+  REQUEST_TIMEOUT = 'REQUEST_TIMEOUT',
+  DATA_PARSE_ERROR = 'DATA_PARSE_ERROR',
 
   // Generic
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
@@ -221,6 +227,16 @@ export interface AppError {
   userFriendlyMessage: string;
   recoverable: boolean;
   originalError?: Error;
+  context?: Record<string, unknown>;
+}
+
+/**
+ * Result from camera capture for image analysis.
+ */
+export interface CaptureResult {
+  imageUri: string;
+  hasLocationData: boolean;
+  location: LocationData | null;
 }
 
 // ============================================================================

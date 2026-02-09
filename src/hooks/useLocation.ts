@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { LocationState, LocationData, AppError, ErrorCode } from '../types';
+import { LocationState, AppError, ErrorCode } from '../types';
 import { LocationService } from '../services';
 import { ERROR_MESSAGES } from '../constants';
 
