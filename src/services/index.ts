@@ -43,3 +43,6 @@ export {
   ImageService,
   ImageServiceClass,
 } from './imageService';
+export {
+  CensusNeighborhoodDataProvider,
+} from './censusProvider';

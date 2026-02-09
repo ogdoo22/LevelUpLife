@@ -16,6 +16,7 @@ import {
   ZIP_PREFIX_REGIONS,
 } from './mockData/neighborhoodMocks';
 import { validateZipCode, normalizeZipCode, calculateWealthTier } from '../utils';
+import { CensusNeighborhoodDataProvider } from './censusProvider';
 
 // ============================================================================
 // PROVIDER INTERFACE
@@ -183,8 +184,8 @@ class NeighborhoodDataServiceClass {
   private readonly CACHE_TTL_MS = 3600000; // 1 hour
 
   constructor(provider?: INeighborhoodDataProvider) {
-    // Default to mock provider for MVP
-    this.provider = provider || new MockNeighborhoodDataProvider();
+    // Default to Census API provider; use mock for testing
+    this.provider = provider || new CensusNeighborhoodDataProvider();
   }
 
   /**

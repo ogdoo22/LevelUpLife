@@ -4,8 +4,13 @@
  */
 
 import { AnalysisEngine, AnalysisEngineClass } from '../../services/analysisEngine';
-import { NeighborhoodDataService } from '../../services/neighborhoodDataService';
+import { NeighborhoodDataService, MockNeighborhoodDataProvider } from '../../services/neighborhoodDataService';
 import { WealthTier } from '../../types';
+
+// Use mock provider for all tests so we don't hit the real Census API
+beforeAll(() => {
+  NeighborhoodDataService.setProvider(new MockNeighborhoodDataProvider());
+});
 
 // ============================================================================
 // MOCK LOCATION DATA

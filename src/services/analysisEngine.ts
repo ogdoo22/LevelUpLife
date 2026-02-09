@@ -191,12 +191,14 @@ export class AnalysisEngineClass {
   }
 
   /**
-   * Get approximate coordinates for a ZIP code.
+   * Get approximate coordinates for a ZIP code via geocoding.
    */
-  private async getZipCoordinates(_zipCode: string): Promise<{ lat: number; lng: number } | null> {
-    // This would ideally call a geocoding API
-    // For now, return null and let the geocode happen via LocationService
-    return null;
+  private async getZipCoordinates(zipCode: string): Promise<{ lat: number; lng: number } | null> {
+    const coords = await LocationService.geocodeAddress(zipCode);
+    if (!coords) {
+      return null;
+    }
+    return { lat: coords.latitude, lng: coords.longitude };
   }
 
   /**

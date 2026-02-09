@@ -393,5 +393,28 @@ export const FUN_LOADING_MESSAGES = [
 /** @deprecated Use FUN_LOADING_MESSAGES instead */
 export const LOADING_MESSAGES = FUN_LOADING_MESSAGES;
 
+// ============================================================================
+// CENSUS API
+// ============================================================================
+
+export const CENSUS_API = {
+  BASE_URL: 'https://api.census.gov/data/2022/acs/acs5',
+  VARIABLES: {
+    MEDIAN_HOME_VALUE: 'B25077_001E',
+    MEDIAN_HOUSEHOLD_INCOME: 'B19013_001E',
+    MEDIAN_GROSS_RENT: 'B25064_001E',
+    TOTAL_POPULATION: 'B01003_001E',
+  },
+  /** National medians for cost-of-living index calculation. */
+  NATIONAL_MEDIANS: {
+    HOME_VALUE: 281900,
+    HOUSEHOLD_INCOME: 74580,
+    GROSS_RENT: 1163,
+  },
+  /** Census sentinel values indicating suppressed/unavailable data. */
+  SENTINEL_VALUES: [-666666666, -999999999, -888888888],
+  REQUEST_TIMEOUT_MS: 10000,
+};
+
 export * from './themes';
 export * from './roasts';

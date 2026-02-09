@@ -171,6 +171,26 @@ class LocationServiceClass {
   }
 
   /**
+   * Forward geocode an address string (e.g. ZIP code) to coordinates.
+   */
+  async geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+    try {
+      const results = await Location.geocodeAsync(address);
+      if (results.length === 0) {
+        return null;
+      }
+      const first = results[0];
+      if (!first) {
+        return null;
+      }
+      return { latitude: first.latitude, longitude: first.longitude };
+    } catch (error) {
+      console.log('LocationService: geocodeAddress failed', error);
+      return null;
+    }
+  }
+
+  /**
    * Get last known location (faster but may be stale).
    */
   async getLastKnownLocation(): Promise<LocationData | null> {
