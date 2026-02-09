@@ -26,7 +26,12 @@
       "package": "com.neighborfi.app"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "NeighborFi",
+      "shortName": "NeighborFi",
+      "description": "Find out what it takes to live in any neighborhood",
+      "themeColor": "#E8A0BF",
+      "backgroundColor": "#E8A0BF"
     }
   }
 }
