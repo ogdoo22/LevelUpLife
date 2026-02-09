@@ -116,8 +116,8 @@ export class AnalysisEngineClass {
    */
   async analyzeLocation(location: LocationData): Promise<AnalysisResult> {
     try {
-      // Get address from coordinates
-      const address = await LocationService.reverseGeocode(
+      // Try Expo geocoding first, fall back to Nominatim (works on web)
+      const address = await this.reverseGeocodeWithFallback(
         location.latitude,
         location.longitude
       );
@@ -137,10 +137,54 @@ export class AnalysisEngineClass {
       throw {
         code: 'ANALYSIS_FAILED',
         message: 'Failed to analyze location',
-        useerFriendlyMessage: "Couldn't analyze this location. Please try again.",
+        userFriendlyMessage: "Couldn't analyze this location. Please try again.",
         recoverable: true
       };
     }
+  }
+
+  /**
+   * Reverse geocode with Nominatim fallback for web compatibility.
+   */
+  private async reverseGeocodeWithFallback(
+    lat: number,
+    lng: number
+  ): Promise<{ city: string; state: string; zipCode: string }> {
+    // Try Expo's reverse geocoding first
+    try {
+      const address = await LocationService.reverseGeocode(lat, lng);
+      if (address.zipCode && address.zipCode !== '00000') {
+        return address;
+      }
+    } catch (e) {
+      console.log('Expo geocoding failed, trying Nominatim');
+    }
+
+    // Fallback: Nominatim (OpenStreetMap) — works on all platforms
+    return this.nominatimReverseGeocode(lat, lng);
+  }
+
+  /**
+   * Reverse geocode using OpenStreetMap Nominatim API (free, no key).
+   */
+  private async nominatimReverseGeocode(
+    lat: number,
+    lng: number
+  ): Promise<{ city: string; state: string; zipCode: string }> {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'NeighborFi/1.0' },
+    });
+    if (!response.ok) {
+      throw new Error('Nominatim request failed');
+    }
+    const data = await response.json();
+    const addr = data?.address ?? {};
+    return {
+      city: addr.city || addr.town || addr.village || '',
+      state: addr.state || '',
+      zipCode: addr.postcode || '',
+    };
   }
 
   /**
@@ -161,19 +205,15 @@ export class AnalysisEngineClass {
         neighborhoodData.city = zipInfo.city;
         neighborhoodData.state = zipInfo.state;
       } else {
-        // Try to geocode the ZIP to get city name
+        // Look up city/state from free ZIP API
         try {
-          const coords = await this.getZipCoordinates(zipCode);
-          if (coords) {
-            const address = await LocationService.reverseGeocode(coords.lat, coords.lng);
-            if (address.city) {
-              neighborhoodData.city = address.city;
-              neighborhoodData.state = address.state || neighborhoodData.state;
-            }
+          const zipLookup = await this.lookupZipLocation(zipCode);
+          if (zipLookup) {
+            neighborhoodData.city = zipLookup.city;
+            neighborhoodData.state = zipLookup.state;
           }
         } catch (e) {
-          // Keep existing city name if geocode fails
-          console.log('ZIP geocode failed, using default');
+          console.log('ZIP lookup failed, using default');
         }
       }
 
@@ -191,14 +231,22 @@ export class AnalysisEngineClass {
   }
 
   /**
-   * Get approximate coordinates for a ZIP code via geocoding.
+   * Look up city/state for a ZIP code using the free zippopotam.us API.
    */
-  private async getZipCoordinates(zipCode: string): Promise<{ lat: number; lng: number } | null> {
-    const coords = await LocationService.geocodeAddress(zipCode);
-    if (!coords) {
+  private async lookupZipLocation(zipCode: string): Promise<{ city: string; state: string } | null> {
+    const response = await fetch(`https://api.zippopotam.us/us/${zipCode}`);
+    if (!response.ok) {
       return null;
     }
-    return { lat: coords.latitude, lng: coords.longitude };
+    const data = await response.json();
+    const place = data?.places?.[0];
+    if (!place) {
+      return null;
+    }
+    return {
+      city: place['place name'] ?? '',
+      state: place['state abbreviation'] ?? '',
+    };
   }
 
   /**
