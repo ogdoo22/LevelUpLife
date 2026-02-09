@@ -130,7 +130,7 @@ class ImageAnalysisServiceClass {
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images' as ImagePicker.MediaType],
         quality: 0.8,
         exif: true, // Request EXIF data including GPS
         allowsEditing: false,
@@ -179,7 +179,7 @@ class ImageAnalysisServiceClass {
   async selectFromGallery(): Promise<CaptureResult> {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images' as ImagePicker.MediaType],
         quality: 0.8,
         exif: true,
         allowsEditing: false,
