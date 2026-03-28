@@ -416,5 +416,13 @@ export const CENSUS_API = {
   REQUEST_TIMEOUT_MS: 10000,
 };
 
+// ============================================================================
+// PROXY
+// ============================================================================
+
+export const PROXY_CONFIG = {
+  DEFAULT_PORT: 10001,
+} as const;
+
 export * from './themes';
 export * from './roasts';

@@ -11,6 +11,7 @@ import {
 import { CENSUS_API, ERROR_MESSAGES } from '../constants';
 import { validateZipCode, normalizeZipCode, calculateWealthTier } from '../utils';
 import { INeighborhoodDataProvider } from './neighborhoodDataService';
+import { proxyFetch } from './proxyService';
 
 // ============================================================================
 // TYPES
@@ -84,7 +85,7 @@ export class CensusNeighborhoodDataProvider implements INeighborhoodDataProvider
     );
 
     try {
-      const response = await fetch(url, { signal: controller.signal });
+      const response = await proxyFetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!response.ok) {

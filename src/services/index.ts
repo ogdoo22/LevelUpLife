@@ -46,3 +46,9 @@ export {
 export {
   CensusNeighborhoodDataProvider,
 } from './censusProvider';
+export {
+  proxyFetch,
+  getProxyConfig,
+  getProxyHeaders,
+  type ProxyConfig,
+} from './proxyService';
